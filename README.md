@@ -1,6 +1,6 @@
-# 🐧 PENGUIN POINT 2
+# 🏄 surf-js
 
-**A single-file, open-world surf sim.** One `index.php` — PHP + SQLite leaderboard on the back, a full three.js ocean on the front. No build step, no assets, no node_modules. Drop it on shared hosting or a Raspberry Pi and go surf.
+**A single-file, open-world surf sim.** One `index.php` — PHP + SQLite leaderboard on the back, a full three.js ocean on the front. No build step, no assets, no node_modules. Drop it on shared hosting or a Raspberry Pi and paddle out at **Penguin Point**. 🐧
 
 ```
 git clone https://github.com/lalomorales22/surf-js
