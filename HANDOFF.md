@@ -1,6 +1,22 @@
 # HANDOFF — Penguin Point 2
 
-State of the world as of 2026-07-12 (v3 session), plus the roadmap for the next session. Read this before touching `index.php`.
+State of the world as of 2026-07-13 (v4 visual-upgrade session), plus the roadmap for the next session. Read this before touching `index.php`.
+
+## 2026-07-13 visual upgrade
+
+The requested character/menu/carry/wave pass is implemented in the single-file game:
+
+1. **Live menu showcase.** The canvas remains visible behind a responsive two-column start screen. The actual selected Three.js rider and board are staged on the beach with a three-quarter idle preview and dedicated key light. Cards are selectors, while the real model is the identity preview. `F` works before and during play.
+2. **Clearer riders.** Kai now has a broader shoulder/chest silhouette, thicker neck and limbs, and squarer face shapes. Mara has a narrower shoulder line, stronger waist-to-hip transition, slimmer limbs/neck, softer face shapes, and the existing spring ponytail. New preset parameters drive head, neck, arm, leg, brow, jaw, and nose proportions without changing bone names.
+3. **Under-arm board contact.** `poseCarry()` and `carryBoard()` hold every board near-horizontal with its upper rail under the left arm. `animPost()` derives a hand target from the live board matrix and solves the carrying arm with hard IK, keeping the hand connected while the gait moves underneath it.
+4. **Readable waves.** Shared JS/GLSL face compression is stronger and both paths include a shore-facing trough, preserving physics/render parity. A pooled crest highlight follows `waterH` and `lipCurlAt`, while the lineup camera eases lower as a set approaches.
+5. **Rendered barrels.** `BARREL_VIS` pools swept overhanging shells at the live peel edges. Each shell has an outer face, darker interior, allocation-free two-axis normals, foam lip beads, and a visible mouth arc. Its length comes from the same `pocketW(s)` used by tube scoring. The chase camera drops under the lip, and the HUD adds a barrel-interior grade while the existing score/reverb/spit loop remains authoritative.
+6. **Deterministic visual tests.** `?test=1` enables fixed-step `window.advanceTime(ms)`, concise `window.render_game_to_text()`, and `window.PP_STAGE('forming'|'barrel'|'ride'|'ridebarrel')`. Normal play remains real-time.
+7. **Deck-planted surf stance.** The pop-up rotates into a full side-on stance and lands at the same crouch height used by surfing. Both feet use hard deck IK, the ankles inherit board rotation, and a toe-side knee pole keeps the rider visibly compressed instead of floating or bending edge-on to the camera.
+
+The live preview changes one old assumption: rider rebuilding can happen while `charRoot` is posed away from the origin. `buildRig()` now temporarily binds from an identity rest frame and restores the showcase transform. Starting play also clears preview foot locks and hair spring history before capturing contacts at the beach spawn. Do not remove either reset; repeated menu switching followed by start is a required regression case.
+
+Keep the base ocean as the physics surface. The crest and barrel objects are render-only views of the same swell state; they must never become a second wave simulation.
 
 ## Where things stand
 
@@ -43,18 +59,12 @@ Verified live this session: full catch→pop→ride loop on the new steeper face
 
 ## NEXT UP (candidates, in rough priority order)
 
-### 1. Wave-face read at the default camera
-The forming-wall shading + pre-barrel lean are in, but the default third-person camera looks *down* at the sea, which flattens everything. Ideas: dip the camera toward water level while a card-called set is inside ~40m (ease `CAM.pitch` floor down), or a dedicated "line-up cam" toggle. Also consider strengthening `wall*0.55` → 0.65 and widening the crest band once judged in live play.
-
-### 2. Barrel interior
-Tube riding works mechanically (3× score, spit, reverb), but visually the curtain is the thrown lip only. A cheap win: while `P.tube > 0`, overdraw a curved translucent sheet (or crank `uwPass`-style shading + darken sky contribution) so being in the barrel LOOKS enclosed. Parity-safe: pure fragment-side, no physics.
-
-### 3. Board/rider extras
+### 1. Board/rider extras
 - Board art variants (colorways per rider accent), wax texture on decks.
 - Leash: a simple verlet strand from ankle to tail (points already exist in RAG-style math) — big believability win in wipeouts, cheap.
 - A third rider preset is now ~20 lines (RIDERS entry + maybe a hair style).
 
-### 4. Smaller follow-ups
+### 2. Smaller follow-ups
 - Session stats → leaderboard payload (best barrel/face). Needs a PHP migration — PHP layer is frozen, so decide deliberately first.
 - Radar: takeoff-pocket ETA countdown, wave-height number on hover.
 - The wipeout→beached transition can leave one odd eased frame when the player watches; consider a brief crouch-recover pose on `wipe→ground`.
