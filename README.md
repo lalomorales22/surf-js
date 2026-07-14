@@ -14,10 +14,11 @@ php -S localhost:8000
 ## What's in the water
 
 - **Real-feel waves** — analytic swell model with wave classes from 1–2ft to 8–10ft double-overhead faces, rare **BOMB SETS** every few minutes, lefts / rights / A-frames / closeouts, and celerity, steepness, and consequence that scale with size. Approaching sets visibly **stand up and lean forward** before they throw: the shore-facing wall darkens to green glass, streaks as water draws up the face, and the whole unbroken crest pitches toward the beach as it hits the bar.
-- **Pick your quiver** — start-screen selection of **three boards** with real physics trade-offs: the 5'10" shortboard (quick rails, hard paddling, late-drop friendly), the 7'2" funboard (balanced), and the 9'1" log (glides into anything early, but slow to turn and loves to pearl). Two riders — **Kai** and **Mara** — with distinct builds, suits, and hair. Choices persist between sessions.
-- **Barrels** — waves going hollow over the outer sandbar throw a curling lip past vertical. Stall into the pocket, track the tube (time in the barrel scores 3×), and get spat out with the mist.
+- **A live character menu** — the start screen shows the actual selected procedural rider holding the selected board, not a placeholder avatar. Kai and Mara have distinct silhouettes, faces, suit cuts, and hair, and all six rider/board combinations update live and persist between sessions.
+- **Pick your quiver** — three boards with real physics trade-offs: the 5'10" shortboard (quick rails, hard paddling, late-drop friendly), the 7'2" funboard (balanced), and the 9'1" log (glides into anything early, but slow to turn and loves to pearl). On land, the board is tucked under the arm with hand-to-rail IK instead of floating beside the rider.
+- **Visible wave faces and barrels** — crest highlights, trough drawdown, darker standing faces, breaking-lip foam, and pooled overhanging water shells make an incoming set readable from the lineup. Hollow waves open into a rendered tube with an interior surface, mouth, exit light, vignette, and tube-aware chase camera. Stall into the pocket, track the tube (time in the barrel scores 3×), and get spat out with the mist.
 - **Manual takeoffs** — no auto-catch. Read the lineup radar, sit in the zone, turn shoreward, paddle until the face takes you, then hit SPACE. Graded takeoffs: early bogs, sweet ones fly, late ones airdrop with a real pearl risk.
-- **Momentum surfing** — your velocity lives on the moving face: gravity pulls you down-slope, rails carve with a grip limit (overpush and you slide), pumps must be timed to the face, and snaps / cutbacks / floaters are graded with speed-scaled spray.
+- **Momentum surfing** — your velocity lives on the moving face: gravity pulls you down-slope, rails carve with a grip limit (overpush and you slide), and pumps must be timed to the face. The rider lands side-on in a compressed stance with both feet IK-planted to the deck, then crouches deeper under pump and carve load; snaps / cutbacks / floaters are graded with speed-scaled spray.
 - **A living shoreline** — dedicated swash simulation: uprush/backwash sheets with lace foam and bubble decay, backwash colliding with the next bore, sediment stirred into the drain, and wet sand that darkens, turns glossy, and mirrors the sky and the surfer before drying out.
 - **Consequences** — overhead wipeouts mean 5–9 second two-stage hold-downs, ragdoll physics with per-limb water drag, and a second wave that can reset the tumble.
 - **A rider who actually sits** — waiting in the lineup means straddling the board for real: tail sunk, nose up, shins in the water kicking slow ripples while the head tracks incoming sets.
@@ -34,6 +35,7 @@ php -S localhost:8000
 | <kbd>SPACE</kbd> | hop on board | **pop up** (time it!) | — |
 | <kbd>E</kbd> | — | sit up / lie down | — |
 | <kbd>C</kbd> | camera 1st ↔ 3rd | ← | ← |
+| <kbd>F</kbd> | fullscreen | ← | ← |
 | <kbd>L</kbd> / <kbd>M</kbd> / <kbd>P</kbd> | leaderboard / mute / pause | ← | ← |
 | drag / wheel | look / zoom | ← | ← |
 
@@ -60,7 +62,7 @@ index.php
    config → shared wave/swash math (authored in JS, mirrored into GLSL — one
    source of truth for physics AND rendering) → post-fx tiers → sky + env maps →
    wet sand → terrain → refraction/depth prepass → ocean + forming-wall shading +
-   lip curl → swash strip → GPU spray → swell/bore lifecycle → rider presets →
+   crest ribbons + pooled barrel shells → swash strip → GPU spray → swell/bore lifecycle → rider presets →
    24-bone skinned surfer → pose library → IK / secondary motion / ragdoll →
    board quiver (physics table) → state machine → camera → input →
    procedural audio → HUD/radar/cards → leaderboard client → main loop

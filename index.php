@@ -133,7 +133,8 @@ $CSRF = htmlspecialchars($_SESSION['csrf'], ENT_QUOTES, 'UTF-8');
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100%;height:100%;overflow:hidden;background:#0a1c2a;font-family:var(--body);color:var(--foam)}
 canvas{display:block}
-#ui{position:fixed;inset:0;pointer-events:none;z-index:5}
+#ui{position:fixed;inset:0;pointer-events:none;z-index:5;visibility:hidden}
+.game-started #ui{visibility:visible}
 .panel{background:var(--panel);border:1px solid var(--panel-brd);border-radius:12px;
   backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 8px 30px rgba(0,10,20,.35)}
 .disp{font-family:var(--disp);font-weight:800;text-transform:uppercase;letter-spacing:.14em}
@@ -231,22 +232,41 @@ button.ghost{background:rgba(255,255,255,.1);color:var(--foam);border:1px solid 
 #underwater{position:absolute;inset:0;display:none;pointer-events:none;
   background:radial-gradient(ellipse at 50% 45%, rgba(14,110,120,.28), rgba(3,44,64,.72));
   mix-blend-mode:normal}
+#barrelfx{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .22s;
+  background:radial-gradient(ellipse at 67% 46%,rgba(90,245,225,0) 0 18%,rgba(5,94,102,.14) 43%,
+    rgba(1,37,48,.54) 78%,rgba(0,16,27,.74) 100%);mix-blend-mode:multiply}
+#barrelfx.on{opacity:1}
 #vignette{position:absolute;inset:0;pointer-events:none;
   background:radial-gradient(ellipse at center, transparent 62%, rgba(2,12,20,.45))}
 
-#start{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;gap:14px;background:linear-gradient(180deg,#0b3350 0%,#0f5a7e 46%,#0c4a63 100%);
+#start{position:absolute;inset:0;display:grid;grid-template-columns:minmax(250px,30vw) minmax(360px,35vw);
+  align-items:center;justify-content:space-between;gap:clamp(150px,28vw,520px);
+  padding:clamp(28px,5vw,80px);overflow:hidden;
+  background:linear-gradient(90deg,rgba(4,24,39,.96) 0%,rgba(5,43,64,.78) 28%,rgba(7,58,78,.05) 45%,
+    rgba(7,58,78,.05) 62%,rgba(5,43,64,.78) 82%,rgba(4,24,39,.96) 100%),
+    linear-gradient(180deg,rgba(8,54,79,.32),rgba(5,34,50,.58));
   pointer-events:auto;z-index:9}
+.startHero{display:flex;flex-direction:column;align-items:flex-start;gap:13px;position:relative;z-index:2}
+.startPanel{display:flex;flex-direction:column;align-items:stretch;gap:12px;position:relative;z-index:2;
+  padding:20px;background:rgba(5,24,37,.68);border:1px solid rgba(180,230,240,.2);border-radius:18px;
+  box-shadow:0 18px 60px rgba(0,18,30,.34)}
 #start h1{font-family:var(--disp);font-weight:800;font-size:clamp(40px,9vw,86px);
-  letter-spacing:.1em;text-transform:uppercase;line-height:.95;text-align:center;
+  letter-spacing:.1em;text-transform:uppercase;line-height:.95;text-align:left;
   background:linear-gradient(180deg,#f6fdff,#8fe7f5 60%,#31c3da);
   -webkit-background-clip:text;background-clip:text;color:transparent;
   filter:drop-shadow(0 6px 22px rgba(0,30,50,.5))}
 #start .sub{letter-spacing:.32em;text-transform:uppercase;font-size:12px;opacity:.85}
 #start .peng{font-size:44px;line-height:1;filter:drop-shadow(0 4px 10px rgba(0,20,30,.5))}
-#start button{font-size:15px;padding:13px 30px;margin-top:8px}
+#start button{font-size:15px;padding:13px 30px;margin-top:0}
 #start .hint{font-size:12px;opacity:.7;letter-spacing:.06em;margin-top:6px}
 #start .hint b{color:var(--teal)}
+.picklabel{font-family:var(--disp);font-weight:800;font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+  color:#a7e8f1;margin:2px 2px -4px}
+.liveTag{display:inline-flex;align-items:center;gap:8px;font-family:var(--disp);font-weight:800;font-size:10px;
+  letter-spacing:.16em;text-transform:uppercase;color:#c8f5fa;background:rgba(8,35,50,.58);
+  border:1px solid rgba(175,235,243,.2);border-radius:999px;padding:7px 11px}
+.liveTag::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--teal);
+  box-shadow:0 0 12px rgba(25,193,212,.9)}
 .selgrp{display:flex;gap:10px;margin-top:2px;flex-wrap:wrap;justify-content:center}
 #start .selcard{display:flex;flex-direction:column;align-items:center;gap:4px;
   background:rgba(8,26,38,.45);border:1px solid var(--panel-brd);border-radius:12px;
@@ -255,14 +275,23 @@ button.ghost{background:rgba(255,255,255,.1);color:var(--foam);border:1px solid 
   letter-spacing:.03em;font-size:10px;opacity:.72}
 #start .selcard b{font-size:12px;letter-spacing:.1em}
 #start .selcard.sel{outline:2px solid var(--teal);background:rgba(25,193,212,.16)}
-#start .selcard .em{font-size:24px;line-height:1.1}
+.rswatch{width:44px;height:30px;display:block;border-radius:22px 22px 10px 10px;border:2px solid rgba(255,255,255,.2);
+  box-shadow:inset 0 -8px 0 rgba(0,0,0,.18)}
+.rswatch.kai{background:linear-gradient(90deg,#1a1d23 0 68%,#19c1d4 68%)}
+.rswatch.mara{background:linear-gradient(90deg,#2a1030 0 68%,#ff7d9e 68%)}
 .bshape{display:block;width:13px;background:linear-gradient(180deg,#f6fdff,#bfe9f2);
   border-radius:50% / 26%;box-shadow:0 2px 6px rgba(0,20,30,.4)}
 .bshort{height:32px}
 .bfun{height:42px}
 .blong{height:54px;background:linear-gradient(180deg,#ffe9c2,#e0bd85)}
+#btnStart{width:100%;margin-top:4px!important}
 #err{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
   text-align:center;padding:30px;background:#0a1c2a;z-index:10;font-size:15px;line-height:1.6}
+@media(max-width:900px){
+  #start{grid-template-columns:minmax(210px,1fr) minmax(310px,1.15fr);gap:24vw;padding:24px}
+  #start h1{font-size:clamp(40px,7vw,62px)}.startPanel{padding:14px}.startHero .peng{font-size:32px}
+  #start .selcard{min-width:104px;padding:8px 10px}#start .hint{font-size:10px}
+}
 @media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
 </style>
 </head>
@@ -318,24 +347,32 @@ button.ghost{background:rgba(255,255,255,.1);color:var(--foam);border:1px solid 
   </div></div>
 
   <div id="underwater"></div>
+  <div id="barrelfx"></div>
   <div id="vignette"></div>
 </div>
 
 <div id="start">
-  <div class="peng">&#128039;</div>
-  <h1>Penguin<br>Point</h1>
-  <div class="sub">a single-file surf sim</div>
-  <div class="selgrp" id="riderSel" role="group" aria-label="choose your rider">
-    <button class="selcard" data-rider="kai"><span class="em">&#127940;</span><b>KAI</b><small>regular &middot; all-rounder</small></button>
-    <button class="selcard" data-rider="mara"><span class="em">&#127940;&#8205;&#9792;&#65039;</span><b>MARA</b><small>goofy &middot; light feet</small></button>
-  </div>
-  <div class="selgrp" id="boardSel" role="group" aria-label="choose your board">
-    <button class="selcard" data-board="short"><i class="bshape bshort"></i><b>5'10" SHORT</b><small>quick rails &middot; late drops</small></button>
-    <button class="selcard" data-board="fun"><i class="bshape bfun"></i><b>7'2" FUNBOARD</b><small>balanced &middot; forgiving</small></button>
-    <button class="selcard" data-board="long"><i class="bshape blong"></i><b>9'1" LOG</b><small>glides in early &middot; mind the pearl</small></button>
-  </div>
-  <button id="btnStart">paddle out</button>
-  <div class="hint"><b>1/2/3</b> board &middot; <b>R</b> rider &middot; keyboard + mouse &middot; runs best in chrome/safari on desktop</div>
+  <section class="startHero">
+    <div class="peng">&#128039;</div>
+    <h1>Penguin<br>Point</h1>
+    <div class="sub">a single-file surf sim</div>
+    <div class="liveTag">live procedural rider preview</div>
+  </section>
+  <section class="startPanel" aria-label="surfer setup">
+    <div class="picklabel">choose your surfer</div>
+    <div class="selgrp" id="riderSel" role="group" aria-label="choose your rider">
+      <button class="selcard" data-rider="kai"><span class="rswatch kai"></span><b>KAI</b><small>regular &middot; power lines</small></button>
+      <button class="selcard" data-rider="mara"><span class="rswatch mara"></span><b>MARA</b><small>goofy &middot; light feet</small></button>
+    </div>
+    <div class="picklabel">choose your board</div>
+    <div class="selgrp" id="boardSel" role="group" aria-label="choose your board">
+      <button class="selcard" data-board="short"><i class="bshape bshort"></i><b>5'10" SHORT</b><small>quick rails &middot; late drops</small></button>
+      <button class="selcard" data-board="fun"><i class="bshape bfun"></i><b>7'2" FUNBOARD</b><small>balanced &middot; forgiving</small></button>
+      <button class="selcard" data-board="long"><i class="bshape blong"></i><b>9'1" LOG</b><small>glides in early &middot; mind the pearl</small></button>
+    </div>
+    <button id="btnStart">paddle out</button>
+    <div class="hint"><b>1/2/3</b> board &middot; <b>R</b> rider &middot; <b>F</b> fullscreen<br>keyboard + mouse &middot; best in chrome/safari on desktop</div>
+  </section>
 </div>
 <div id="err"><div></div></div>
 
@@ -405,7 +442,7 @@ const SWH = {
 
 // front-face compression as a wave breaks: 0 -> symmetric sech^2, 1 -> vertical wall.
 // used by BOTH the JS physics and the GLSL twins (injected via f6) — keep in sync.
-const FACEK = 0.62;
+const FACEK = 0.78;
 
 const clamp = (v,a,b)=>Math.min(b,Math.max(a,v));
 const lerp = (a,b,t)=>a+(b-a)*t;
@@ -443,7 +480,9 @@ function swellHeightAt(x,z){
     const u = dz/Lf, e = Math.exp(u), sech = 2/(e+1/e);
     const q = (x-s.xc)/s.halfW, q2=q*q, env = Math.exp(-(q2*q2));
     const inner = sstep(-3, 2.5, Math.min(x-s.bL, s.bR-x));
-    h += s.amp*sech*sech*env*(1-0.42*s.bf*inner)*s.wash;
+    const crest=sech*sech;
+    const trU=(u-1.18)/0.62, trough=Math.exp(-(trU*trU))*s.bf;
+    h += s.amp*(crest*(1-0.42*s.bf*inner)-0.22*trough)*env*s.wash;
   }
   return h;
 }
@@ -556,7 +595,10 @@ float swellH(vec2 p){
     float u = dz/Lf; float e = exp(u); float sech = 2.0/(e+1.0/e);
     float q = (p.x-P.x)/Q.x; float q2=q*q; float env = exp(-(q2*q2));
     float inner = sstep(-3.0, 2.5, min(p.x-Q.z, Q.w-p.x));
-    h += P.z*sech*sech*env*(1.0-0.42*Q.y*inner)*uSwR[i].x;
+    float crest=sech*sech;
+    float trU=(u-1.18)/0.62;
+    float trough=exp(-(trU*trU))*Q.y;
+    h += P.z*(crest*(1.0-0.42*Q.y*inner)-0.22*trough)*env*uSwR[i].x;
   }
   return h;
 }
@@ -799,6 +841,9 @@ sun.shadow.bias = -0.0004;
 scene.add(sun, sun.target);
 const hemi = new THREE.HemisphereLight(0xbfe3f2, 0x8a7a5c, 0.85);
 scene.add(hemi);
+const menuKey = new THREE.DirectionalLight(0xe4f9ff, 2.2);
+menuKey.position.set(-3,10,66); menuKey.target.position.set(0,7,58);
+scene.add(menuKey,menuKey.target);
 sun.layers.enable(1); hemi.layers.enable(1);   // layer 1 = planar-reflection subset
 sun.layers.enable(2); hemi.layers.enable(2);   // layer 2 = under-surface prepass (lit!)
 
@@ -1228,13 +1273,13 @@ void main(){
 
   // ---- forming wall: the shore-facing face reads as SHAPE before any foam ----
   // Nmac.z > 0 = face leaning toward the beach; height gate skips ambient chop
-  float wall = sstep(0.06, 0.30, Nmac.z) * sstep(0.30, 1.05, vWorld.y);
+  float wall = sstep(0.035, 0.24, Nmac.z) * sstep(0.18, 0.82, vWorld.y);
   vec3 wallCol = mix(uDeep*0.8, vec3(0.02,0.32,0.36), 0.55);
-  water = mix(water, wallCol, wall*0.55);
+  water = mix(water, wallCol, wall*0.72);
   float vstreak = vnoise(vec2(vWorld.x*2.7, vWorld.y*1.3 + vWorld.z*0.22 - t*0.5));
-  water *= 1.0 + wall*(vstreak-0.5)*0.34;          // water drawing up the face
-  float crest = wall * sstep(0.55, 1.35, vWorld.y);
-  water += vec3(0.05,0.45,0.40) * crest * 0.55;    // green-glass band under the lip
+  water *= 1.0 + wall*(vstreak-0.5)*0.42;          // water drawing up the face
+  float crest = wall * sstep(0.42, 1.18, vWorld.y);
+  water += vec3(0.05,0.45,0.40) * crest * 0.78;    // green-glass band under the lip
 
   // subsurface glow on backlit shoaling faces — boosted through the thin lip
   float toSun = max(dot(normalize(vWorld - cameraPosition), uSun), 0.0);
@@ -1255,7 +1300,9 @@ void main(){
   R.y = abs(R.y);
   vec3 skyCol = textureCube(uEnvCube, R).rgb * vec3(0.52,0.70,0.98);
   float fres = 0.02 + 0.98*pow(1.0 - max(dot(N,V),0.0), 5.0);
-  vec3 col = mix(water, skyCol, clamp(fres,0.0,0.55));
+  // Standing faces stay green/dark instead of reflecting so much sky that
+  // their height disappears from the lineup camera.
+  vec3 col = mix(water, skyCol, clamp(fres*(1.0-0.58*wall),0.0,0.55));
 
   vec3 foamCol = vec3(0.93,0.965,0.975)*(0.78+0.22*nz);
   col = mix(col, foamCol, F);
@@ -1724,16 +1771,193 @@ function updateSpawner(dt){
   }
 }
 
+// ---------- breaking lip + barrel shells ----------
+// The base ocean remains the authoritative physics heightfield. These pooled meshes
+// add the overhanging surface a single-valued heightfield cannot represent.
+const BARREL_VIS = (()=>{
+  const NX=28, NV=18, pool=[];
+  const idx=[];
+  for(let i=0;i<NX;i++)for(let j=0;j<NV;j++){
+    const a=i*(NV+1)+j,b=a+NV+1;
+    idx.push(a,b,a+1,a+1,b,b+1);
+  }
+  function makeSlot(){
+    const n=(NX+1)*(NV+1);
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), col=new Float32Array(n*3);
+    for(let i=0;i<=NX;i++)for(let j=0;j<=NV;j++){
+      const k=(i*(NV+1)+j)*3, v=j/NV;
+      const foam=sstep(0.18,0.0,v)+sstep(0.82,1.0,v);
+      col[k]=lerp(0.08,0.92,foam); col[k+1]=lerp(0.48,0.97,foam); col[k+2]=lerp(0.53,1.0,foam);
+    }
+    const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.BufferAttribute(pos,3).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('normal',new THREE.BufferAttribute(nor,3).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('color',new THREE.BufferAttribute(col,3)); g.setIndex(idx);
+    g.boundingSphere=new THREE.Sphere(new THREE.Vector3(),180);
+    const m=new THREE.MeshPhysicalMaterial({
+      color:0xffffff,vertexColors:true,transparent:true,opacity:0.90,roughness:0.24,metalness:0,
+      clearcoat:0.35,clearcoatRoughness:0.18,side:THREE.FrontSide,depthWrite:true,
+    });
+    const mesh=new THREE.Mesh(g,m); mesh.visible=false; mesh.frustumCulled=false; mesh.renderOrder=2;
+    // The darker back face is what makes the shell read as a hollow room when
+    // the camera and surfer enter it. It shares the animated geometry exactly.
+    const innerMat=new THREE.MeshPhysicalMaterial({
+      color:0x177783,vertexColors:true,transparent:true,opacity:0.68,roughness:0.34,metalness:0,
+      clearcoat:0.18,clearcoatRoughness:0.28,side:THREE.BackSide,depthWrite:false,
+      emissive:0x032b34,emissiveIntensity:0.38,
+    });
+    const inner=new THREE.Mesh(g,innerMat); inner.visible=false; inner.frustumCulled=false; inner.renderOrder=2;
+    const lipPos=new Float32Array((NX+1)*3);
+    const lipGeo=new THREE.BufferGeometry();
+    lipGeo.setAttribute('position',new THREE.BufferAttribute(lipPos,3).setUsage(THREE.DynamicDrawUsage));
+    lipGeo.boundingSphere=new THREE.Sphere(new THREE.Vector3(),180);
+    const lip=new THREE.Line(lipGeo,new THREE.LineBasicMaterial({color:0xeaffff,transparent:true,opacity:0.92,depthWrite:false}));
+    lip.visible=false; lip.frustumCulled=false; lip.renderOrder=3;
+    const lipSpray=new THREE.Points(lipGeo,new THREE.PointsMaterial({
+      color:0xf3ffff,size:0.13,sizeAttenuation:true,transparent:true,opacity:0.72,depthWrite:false,
+    }));
+    lipSpray.visible=false; lipSpray.frustumCulled=false; lipSpray.renderOrder=4;
+    // A thin arc at the shoulder-side opening gives the barrel a readable
+    // round mouth from both chase and side cameras.
+    const mouthPos=new Float32Array((NV+1)*3);
+    const mouthGeo=new THREE.BufferGeometry();
+    mouthGeo.setAttribute('position',new THREE.BufferAttribute(mouthPos,3).setUsage(THREE.DynamicDrawUsage));
+    mouthGeo.boundingSphere=new THREE.Sphere(new THREE.Vector3(),180);
+    const mouth=new THREE.Line(mouthGeo,new THREE.LineBasicMaterial({
+      color:0xa8ffff,transparent:true,opacity:0.62,depthWrite:false,
+    }));
+    mouth.visible=false; mouth.frustumCulled=false; mouth.renderOrder=4;
+    scene.add(mesh,inner,lip,lipSpray,mouth);
+    return {mesh,inner,pos,nor,lip,lipSpray,lipPos,mouth,mouthPos};
+  }
+  for(let i=0;i<CFG.maxSwells*2;i++) pool.push(makeSlot());
+  function fill(slot,s,side,t){
+    const edge=side>0?s.bR:s.bL;
+    if (!Number.isFinite(edge) || Math.abs(edge)>2000) {
+      slot.mesh.visible=false; slot.inner.visible=false; slot.lip.visible=false;
+      slot.lipSpray.visible=false; slot.mouth.visible=false; return;
+    }
+    const span=pocketW(s)*0.95;
+    let p=0;
+    for(let i=0;i<=NX;i++){
+      const u=i/NX, open=sstep(0.0,0.38,u);
+      const x=edge+side*u*span;
+      const q=(x-s.xc)/s.halfW,q2=q*q,envX=Math.exp(-(q2*q2));
+      const crest=waterH(x,s.zc,t), ampX=s.amp*envX*s.wash;
+      const base=crest-ampX;
+      // A genuinely overhead C-section: tall enough to clear a standing rider,
+      // with the curtain thrown shoreward into the scoring pocket.
+      const ry=Math.max(ampX*(0.88+0.17*s.brl)*open,0.015);
+      const rz=Math.max(ampX*(0.38+0.47*s.brl)*open,0.015);
+      const cy=base+ampX*0.58*open;
+      const cz=s.zc+ampX*(0.07+0.10*s.brl)*open;
+      for(let j=0;j<=NV;j++){
+        const v=j/NV, th=Math.PI*0.5-v*Math.PI;
+        const cs=Math.cos(th),sn=Math.sin(th);
+        slot.pos[p]=x;
+        slot.pos[p+1]=cy+ry*sn;
+        slot.pos[p+2]=cz+rz*cs;
+        p+=3;
+      }
+      const bp=(i*(NV+1))*3, lp=i*3;
+      slot.lipPos[lp]=slot.pos[bp]; slot.lipPos[lp+1]=slot.pos[bp+1]+0.035; slot.lipPos[lp+2]=slot.pos[bp+2];
+    }
+    for(let j=0;j<=NV;j++){
+      const src=(NX*(NV+1)+j)*3,dst=j*3;
+      slot.mouthPos[dst]=slot.pos[src];
+      slot.mouthPos[dst+1]=slot.pos[src+1];
+      slot.mouthPos[dst+2]=slot.pos[src+2];
+    }
+    // Allocation-free finite-difference normals capture both the cross-section
+    // curl and the widening mouth along x.
+    for(let i=0;i<=NX;i++)for(let j=0;j<=NV;j++){
+      const im=Math.max(i-1,0),ip=Math.min(i+1,NX),jm=Math.max(j-1,0),jp=Math.min(j+1,NV);
+      const a=(im*(NV+1)+j)*3,b=(ip*(NV+1)+j)*3;
+      const c=(i*(NV+1)+jm)*3,d=(i*(NV+1)+jp)*3,k=(i*(NV+1)+j)*3;
+      const ux=slot.pos[b]-slot.pos[a],uy=slot.pos[b+1]-slot.pos[a+1],uz=slot.pos[b+2]-slot.pos[a+2];
+      const vx=slot.pos[d]-slot.pos[c],vy=slot.pos[d+1]-slot.pos[c+1],vz=slot.pos[d+2]-slot.pos[c+2];
+      let nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx;
+      const il=1/Math.max(Math.hypot(nx,ny,nz),1e-6);nx*=il;ny*=il;nz*=il;
+      slot.nor[k]=nx;slot.nor[k+1]=ny;slot.nor[k+2]=nz;
+    }
+    slot.mesh.material.opacity=0.48+0.38*s.brl;
+    slot.inner.material.opacity=0.48+0.16*s.brl;
+    slot.mouth.material.opacity=0.36+0.30*s.brl;
+    slot.mesh.geometry.attributes.position.needsUpdate=true;
+    slot.mesh.geometry.attributes.normal.needsUpdate=true;
+    slot.lip.geometry.attributes.position.needsUpdate=true;
+    slot.mouth.geometry.attributes.position.needsUpdate=true;
+    slot.mesh.visible=true; slot.inner.visible=true; slot.lip.visible=true;
+    slot.lipSpray.visible=true; slot.mouth.visible=true;
+  }
+  return {update(t){
+    let n=0;
+    for(const s of swells){
+      if (!s.breaking || s.brl<0.14 || s.wash<0.38 || s.dying) continue;
+      if (s.dir>=0) fill(pool[n++],s,1,t);
+      if (s.dir<=0 && n<pool.length) fill(pool[n++],s,-1,t);
+    }
+    while(n<pool.length){
+      pool[n].mesh.visible=false;pool[n].inner.visible=false;pool[n].lip.visible=false;
+      pool[n].lipSpray.visible=false;pool[n].mouth.visible=false;n++;
+    }
+  }};
+})();
+
+// ---------- readable swell crests ----------
+// A moving crest highlight gives the player an actual line to read from water
+// level. It follows the same heightfield and lip displacement as the physics,
+// so radar, takeoff timing, and the visible wave agree.
+const CREST_VIS = (()=>{
+  const NP=56,pool=[],curl={y:0,z:0};
+  function makeSlot(){
+    const pos=new Float32Array(NP*3),g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.BufferAttribute(pos,3).setUsage(THREE.DynamicDrawUsage));
+    g.boundingSphere=new THREE.Sphere(new THREE.Vector3(),240);
+    const line=new THREE.Line(g,new THREE.LineBasicMaterial({
+      color:0x76dce8,transparent:true,opacity:0.32,depthWrite:false,
+    }));
+    const beads=new THREE.Points(g,new THREE.PointsMaterial({
+      color:0xeaffff,size:0.10,sizeAttenuation:true,transparent:true,opacity:0.55,depthWrite:false,
+    }));
+    line.visible=false;beads.visible=false;line.frustumCulled=false;beads.frustumCulled=false;
+    line.renderOrder=3;beads.renderOrder=4;scene.add(line,beads);
+    return {pos,g,line,beads};
+  }
+  for(let i=0;i<CFG.maxSwells;i++)pool.push(makeSlot());
+  return {update(t){
+    let n=0;
+    for(const s of swells){
+      if(s.wash<0.32||s.dying||n>=pool.length)continue;
+      const slot=pool[n++],span=Math.min(s.halfW*1.08,165);
+      for(let i=0;i<NP;i++){
+        const x=s.xc+lerp(-span,span,i/(NP-1));
+        lipCurlAt(x,s.zc,curl);
+        const k=i*3;
+        slot.pos[k]=x;slot.pos[k+1]=waterH(x,s.zc,t)+curl.y+0.045;slot.pos[k+2]=s.zc+curl.z;
+      }
+      slot.g.attributes.position.needsUpdate=true;
+      slot.line.material.color.setHex(s.bf>0.55?0xcffcff:0x62d8e6);
+      slot.line.material.opacity=clamp(0.20+0.48*s.bf,0.2,0.72)*s.wash;
+      slot.beads.material.opacity=clamp((s.bf-0.32)*0.9,0,0.58)*s.wash;
+      slot.line.visible=true;slot.beads.visible=s.bf>0.38;
+    }
+    while(n<pool.length){pool[n].line.visible=false;pool[n].beads.visible=false;n++;}
+  }};
+})();
+
 // ---------- character rig 2.0: 24-bone skeleton + procedural SkinnedMesh ----------
 // rider presets: same bone NAMES + limb lengths (pose/IK system untouched),
 // different widths, suit radii, face + hair. selected on the start screen.
 const RIDERS = {
   kai:  { key:'kai', skin:0xc98d63, suit:0x1a1d23, accent:0x19c1d4, hair:0x241a12,
-          clavX:0.055, shX:0.145, hipX:0.10, shR:1.0, hipR:1.0, chestR:1.0, waistR:1.0,
-          jawS:1.0, browS:1.0, hairStyle:'crop' },
+          clavX:0.065, shX:0.168, hipX:0.098, shR:1.18, hipR:0.98, chestR:1.13, waistR:0.92,
+          armR:1.12, legR:1.08, neckR:1.10, headX:1.02, headY:1.02,
+          jawS:1.14, browS:1.12, noseS:1.08, hairStyle:'crop' },
   mara: { key:'mara', skin:0xb97a52, suit:0x2a1030, accent:0xff7d9e, hair:0x140d08,
-          clavX:0.045, shX:0.125, hipX:0.11, shR:0.85, hipR:1.10, chestR:0.94, waistR:0.86,
-          jawS:0.84, browS:0.68, hairStyle:'pony' },
+          clavX:0.040, shX:0.116, hipX:0.116, shR:0.78, hipR:1.18, chestR:0.98, waistR:0.78,
+          armR:0.88, legR:0.96, neckR:0.90, headX:0.96, headY:1.04,
+          jawS:0.78, browS:0.62, noseS:0.92, hairStyle:'pony' },
 };
 let RIDER = RIDERS.kai;
 const MAT = {
@@ -1799,12 +2023,13 @@ function buildSkeleton(pres){
 
   // face + skull ride the head bone (rigid); jaw/nose/ears break up the sphere
   const skull = new THREE.Mesh(new THREE.SphereGeometry(0.105,18,14), MAT.skin);
-  skull.position.y=0.105; skull.scale.set(0.92,1.02,0.96); skull.castShadow=true;
+  skull.position.y=0.105; skull.scale.set(0.92*pres.headX,1.02*pres.headY,0.96); skull.castShadow=true;
   head.add(skull); headMeshes.push(skull);
   const jaw = new THREE.Mesh(new THREE.SphereGeometry(0.082,14,10), MAT.skin);
   jaw.position.set(0, 0.040, 0.030); jaw.scale.set(0.86*pres.jawS, 0.70, 0.95);
   head.add(jaw); headMeshes.push(jaw);
   const nose = new THREE.Mesh(new THREE.ConeGeometry(0.015,0.034,6), MAT.skin);
+  nose.scale.setScalar(pres.noseS);
   nose.rotation.x = Math.PI/2; nose.position.set(0, 0.088, 0.102);
   head.add(nose); headMeshes.push(nose);
   for (const sd of [-1,1]){
@@ -1825,7 +2050,8 @@ function buildSkeleton(pres){
   mouth.position.set(0, 0.042, 0.094); head.add(mouth); headMeshes.push(mouth);
   // neck bridge under the jawline (the suit collar stops at the shoulders)
   const neckM = new THREE.Mesh(new THREE.CylinderGeometry(0.044,0.054,0.10,10), MAT.skin);
-  neckM.position.y = 0.028; neck.add(neckM); headMeshes.push(neckM);
+  neckM.position.y = 0.028; neckM.scale.x=neckM.scale.z=pres.neckR;
+  neck.add(neckM); headMeshes.push(neckM);
   // spring-bone hair: cropped flaps, or a fuller cap + ponytail chain
   if (pres.hairStyle==='pony'){
     const cap = new THREE.Mesh(new THREE.SphereGeometry(0.108,14,8,0,TAU,0,1.7), MAT.hair);
@@ -1877,8 +2103,14 @@ function buildSkeleton(pres){
 // origin during selection), so a mid-game suit rebuild binds correctly while posed
 let SKEL = null;
 const _BINDM = new THREE.Matrix4();
+const _RIG_POS=new THREE.Vector3(),_RIG_QUAT=new THREE.Quaternion(),_RIG_SCALE=new THREE.Vector3();
 function buildRig(key){
   RIDER = RIDERS[key] || RIDERS.kai;
+  // The live menu poses and moves charRoot. Always capture skeleton inverses in
+  // a clean identity rest frame, then restore the preview/game transform.
+  _RIG_POS.copy(charRoot.position);_RIG_QUAT.copy(charRoot.quaternion);_RIG_SCALE.copy(charRoot.scale);
+  charRoot.position.set(0,0,0);charRoot.quaternion.identity();charRoot.scale.set(1,1,1);
+  charRoot.updateMatrixWorld(true);
   if (J.pelvis){
     const old = J.pelvis;
     charRoot.remove(old);
@@ -1897,6 +2129,8 @@ function buildRig(key){
   MAT.hair.color.setHex(RIDER.hair);
   buildSuit(quality!=='low');
   setEnvIntensity(charRoot, 0.55);
+  charRoot.position.copy(_RIG_POS);charRoot.quaternion.copy(_RIG_QUAT);charRoot.scale.copy(_RIG_SCALE);
+  charRoot.updateMatrixWorld(true);
 }
 function updateFace(dt){
   CHARF.nextBlink -= dt;
@@ -1955,32 +2189,32 @@ function buildSuit(hi){
     const S = side<0?'L':'R', x=ax*side;
     tube([   // arm: wrist -> forearm bulge -> elbow -> biceps -> deltoid (ascending y)
       [x,0.828,0,0.015,'wrist'+S],
-      [x,0.852,0,0.034,'elbow'+S,'wrist'+S,0.85],
-      [x,0.905,0,0.041,'elbow'+S,'wrist'+S,0.45],
-      [x,0.950,0,0.043,'elbow'+S,'wrist'+S,0.25],
-      [x,1.000,0,0.040,'elbow'+S],
-      [x,1.075,0,0.045,'shoulder'+S,'elbow'+S,0.75],
-      [x,1.120,0,0.048,'shoulder'+S,'elbow'+S,0.5],
-      [x,1.165,0,0.052*shR,'shoulder'+S,'elbow'+S,0.3],
-      [x,1.250,0,0.055*shR,'shoulder'+S],
-      [x,1.330,0,0.057*shR,'shoulder'+S],
-      [x,1.395,0,0.061*shR,'shoulder'+S],
-      [x,1.438,0,0.058*shR,'shoulder'+S,'clav'+S,0.35],
+      [x,0.852,0,0.034*RIDER.armR,'elbow'+S,'wrist'+S,0.85],
+      [x,0.905,0,0.041*RIDER.armR,'elbow'+S,'wrist'+S,0.45],
+      [x,0.950,0,0.043*RIDER.armR,'elbow'+S,'wrist'+S,0.25],
+      [x,1.000,0,0.040*RIDER.armR,'elbow'+S],
+      [x,1.075,0,0.045*RIDER.armR,'shoulder'+S,'elbow'+S,0.75],
+      [x,1.120,0,0.048*RIDER.armR,'shoulder'+S,'elbow'+S,0.5],
+      [x,1.165,0,0.052*shR*RIDER.armR,'shoulder'+S,'elbow'+S,0.3],
+      [x,1.250,0,0.055*shR*RIDER.armR,'shoulder'+S],
+      [x,1.330,0,0.057*shR*RIDER.armR,'shoulder'+S],
+      [x,1.395,0,0.061*shR*RIDER.armR,'shoulder'+S],
+      [x,1.438,0,0.058*shR*RIDER.armR,'shoulder'+S,'clav'+S,0.35],
       [x,1.468,0,0.020,'clav'+S],
     ], 1.0);
     const hx=RIDER.hipX*side;
     tube([   // leg: ankle -> calf bulge -> knee -> quads -> hip crease (ascending y)
       [hx,0.118,0,0.021,'ankle'+S],
-      [hx,0.150,0,0.040,'knee'+S,'ankle'+S,0.85],
-      [hx,0.230,0,0.052,'knee'+S,'ankle'+S,0.45],
-      [hx,0.300,0,0.049,'knee'+S,'ankle'+S,0.25],
-      [hx,0.370,0,0.052,'knee'+S],
-      [hx,0.500,0,0.064,'hip'+S,'knee'+S,0.75],
-      [hx,0.545,0,0.067,'hip'+S,'knee'+S,0.5],
-      [hx,0.590,0,0.070,'hip'+S,'knee'+S,0.3],
-      [hx,0.700,0,0.080*hipR,'hip'+S],
-      [hx,0.880,0,0.090*hipR,'hip'+S],
-      [hx,0.965,0,0.086*hipR,'pelvis','hip'+S,0.45],
+      [hx,0.150,0,0.040*RIDER.legR,'knee'+S,'ankle'+S,0.85],
+      [hx,0.230,0,0.052*RIDER.legR,'knee'+S,'ankle'+S,0.45],
+      [hx,0.300,0,0.049*RIDER.legR,'knee'+S,'ankle'+S,0.25],
+      [hx,0.370,0,0.052*RIDER.legR,'knee'+S],
+      [hx,0.500,0,0.064*RIDER.legR,'hip'+S,'knee'+S,0.75],
+      [hx,0.545,0,0.067*RIDER.legR,'hip'+S,'knee'+S,0.5],
+      [hx,0.590,0,0.070*RIDER.legR,'hip'+S,'knee'+S,0.3],
+      [hx,0.700,0,0.080*hipR*RIDER.legR,'hip'+S],
+      [hx,0.880,0,0.090*hipR*RIDER.legR,'hip'+S],
+      [hx,0.965,0,0.086*hipR*RIDER.legR,'pelvis','hip'+S,0.45],
     ], 1.0);
   }
   const g = new THREE.BufferGeometry();
@@ -2025,6 +2259,13 @@ function poseWalk(phase, runF){
   setJ('elbowL', -0.3-runF*0.6); setJ('elbowR', -0.3-runF*0.6);
   setJ('pelvis', 0, sw*0.09, 0); setJ('spine', 0.05+runF*0.15, -sw*0.08, 0);
   setJ('neck', -0.05-runF*0.1);
+}
+function poseCarry(){
+  // The left arm wraps over the deck; hard IK in animPost keeps the hand on the rail.
+  setJ('clavL', 0.03, 0, 0.12);
+  setJ('shoulderL', -0.10, 0.10, 0.34);
+  setJ('elbowL', -0.72, 0, 0.06);
+  TGT.chest.z += 0.035;
 }
 function poseWade(phase){
   const sw=Math.sin(phase);
@@ -2080,11 +2321,12 @@ const POSE_PUSHUP = {
   ankleL:[0.8], ankleR:[0.8],
 };
 const POSE_STANCE = {
-  hipL:[-0.55,0,0.12], hipR:[0.32,0,-0.12], kneeL:[0.6], kneeR:[0.62],
-  ankleL:[-0.1], ankleR:[-0.35],
-  spine:[0.08,0.55,0], chest:[0,0.2,0], neck:[-0.05,0.5,0],
-  shoulderL:[-0.35,0,1.2], shoulderR:[-0.35,0,-1.2],
-  elbowL:[-0.35], elbowR:[-0.35],
+  pelvis:[0.14,0.10,0],
+  hipL:[-0.48,0,0.10], hipR:[0.28,0,-0.10], kneeL:[0.72], kneeR:[0.74],
+  ankleL:[-0.08], ankleR:[-0.12],
+  spine:[0.23,0.46,0], chest:[0.07,0.26,0], neck:[-0.11,0.34,0],
+  shoulderL:[-0.42,0,1.18], shoulderR:[-0.42,0,-1.18],
+  elbowL:[-0.48], elbowR:[-0.48],
 };
 function posePopup(tau){
   if (tau < 0.45){
@@ -2265,14 +2507,28 @@ function animPost(dt, t){
         J['ankle'+S].quaternion.copy(_ikQ1).multiply(_ikQ2);
       }
     }
+    // Carrying hand stays planted on the outside deck while the gait moves beneath it.
+    boardG.updateMatrixWorld(true);
+    _hw.set(0.17*BOARD.wid, 0.060, -0.04).applyMatrix4(boardG.matrixWorld);
+    _pole.set(-1.5, 0.35, 0.55).applyQuaternion(charRoot.quaternion);
+    solveLimbIK(J.shoulderL, J.elbowL, _hw, _pole, LIMB.upperArm, LIMB.foreArm);
   } else if (st==='surf' || (st==='popup' && P.timer/0.5 > 0.82)){
     // feet locked to the deck: front (left) + back (right), zero slide
     boardG.updateMatrixWorld(true);
-    _hw.set(-0.09, 0.10, 0.34*BOARD.stance).applyMatrix4(boardG.matrixWorld);
-    _hw2.set(0.08, 0.10, -0.33*BOARD.stance).applyMatrix4(boardG.matrixWorld);
-    yawFwd(P.hYaw||P.yaw, _pole); _pole.y += 0.35;
+    _hw.set(-0.09, 0.09, 0.34*BOARD.stance).applyMatrix4(boardG.matrixWorld);
+    _hw2.set(0.08, 0.09, -0.33*BOARD.stance).applyMatrix4(boardG.matrixWorld);
+    // Both knees flex toward the toe-side rail, producing the compact diamond
+    // silhouette of a real stance instead of bending invisibly along travel.
+    _pole.set(0,0.55,1.25).applyQuaternion(charRoot.quaternion);
     solveLimbIK(J.hipL, J.kneeL, _hw, _pole, LIMB.thigh, LIMB.shin);
     solveLimbIK(J.hipR, J.kneeR, _hw2, _pole, LIMB.thigh, LIMB.shin);
+    // Keep both soles parallel to the deck after leg IK. The character root is
+    // side-on to the board, so its world rotation is also the desired foot heading.
+    charRoot.getWorldQuaternion(_ikQ2);
+    for(const S of ['L','R']){
+      J['knee'+S].getWorldQuaternion(_ikQ1).invert();
+      J['ankle'+S].quaternion.copy(_ikQ1).multiply(_ikQ2);
+    }
   }
   // ---- paddle-stroke hand IK: strokes reach, dig, exit — splash + rings on entry ----
   if ((st==='prone' || st==='catch') && P.spd > -0.2){
@@ -2443,13 +2699,15 @@ function buildBoard(kind){
     if (c.geometry) c.geometry.dispose();
     if (c.material) c.material.dispose();   // material.dispose() leaves PENG_TEX alone
   }
-  const deck = new THREE.MeshStandardMaterial({color:B.deck, roughness:0.35});
+  const deck = new THREE.MeshStandardMaterial({
+    color:B.deck,roughness:0.35,emissive:B.deck,emissiveIntensity:0.30,
+  });
   const hull = new THREE.Mesh(new THREE.CapsuleGeometry(0.26*B.wid, 1.42*B.len, 6, 16), deck);
   hull.rotation.x = Math.PI/2;      // long axis -> Z, nose at +Z
   hull.scale.set(1,1,B.thick);      // local z is world-vertical after rotation
   hull.castShadow = true; boardG.add(hull);
   const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.03,0.012,1.85*B.len),
-    new THREE.MeshStandardMaterial({color:B.stripe, roughness:0.5}));
+    new THREE.MeshStandardMaterial({color:B.stripe,roughness:0.5,emissive:B.stripe,emissiveIntensity:0.32}));
   stripe.position.y = 0.26*B.wid*B.thick + 0.003; boardG.add(stripe);
   const decal = new THREE.Mesh(
     new THREE.PlaneGeometry(0.30,0.30),
@@ -2531,11 +2789,12 @@ function placeCharOnBoard(off, pitch, yawAdj, roll, uprightMix=0){
 }
 function carryBoard(dt){
   _e.set(0, player.yaw, 0); _qb.setFromEuler(_e);
-  // a 9'1" log carried nose-down would spear the sand — carry it near-horizontal
-  const pitch = BOARD.len > 1.15 ? 0.38 : 1.35;
-  _v3.set(-0.34, 0.86, 0.05).applyQuaternion(_qb).add(charRoot.position);
+  // Board plane is vertical, long axis is near-horizontal, and the upper rail is under the arm.
+  const pitch = BOARD.len > 1.15 ? -0.035 : -0.085;
+  const roll = BOARD.len > 1.15 ? 1.48 : 1.43;
+  _v3.set(-0.265, 0.99, 0.04).applyQuaternion(_qb).add(charRoot.position);
   boardG.position.lerp(_v3, damp(14,dt));
-  _e.set(pitch, player.yaw, 0.12, 'YXZ'); _qc.setFromEuler(_e);
+  _e.set(pitch, player.yaw, roll, 'YXZ'); _qc.setFromEuler(_e);
   boardG.quaternion.slerp(_qc, damp(14,dt));
 }
 function endRide(reason){
@@ -2653,6 +2912,7 @@ function updatePlayer(dt){
       P.phase += dt*(3.1+P.spd*1.55);
       if (d>0.3) poseWade(P.phase*0.7); else poseWalk(P.phase, clamp((P.spd-CFG.walk)/(CFG.run-CFG.walk),0,1));
     } else { setJ('chest', Math.sin(t*1.4)*0.02); setJ('shoulderL',0,0,0.05); setJ('shoulderR',0,0,-0.05); }
+    poseCarry();
     carryBoard(dt);
     // prompts + transitions
     if (d>0.8){
@@ -2874,8 +3134,8 @@ function updatePlayer(dt){
       P.pos.y = boardG.position.y;
     }
     const k = sstep(0.15,0.9,tau);
-    _v3b.set(0, lerp(0.10,0.12,k), lerp(-0.70,-0.06,k));
-    placeCharOnBoard(_v3b, 1.40*(1-k), -1.1*k, 0);
+    _v3b.set(0, lerp(0.10,-0.38,k), lerp(-0.70,-0.06,k));
+    placeCharOnBoard(_v3b, 1.40*(1-k), -Math.PI*0.5*k, 0);
     resetPose(); posePopup(tau);
     trackRide(dt, s);
     if (tau>=1 && !P.air){ initSurf(s); SFX.pop(); }
@@ -2987,7 +3247,10 @@ function updatePlayer(dt){
     if (CAM.mode==='tp' && !dragging) CAM.yaw += shortAngle(CAM.yaw, h)*damp(1.4,dt);
     boardFollowSurface(dt, h + P.slide*P.lean*0.6, -0.05 - spd*0.004);
     P.pos.y = boardG.position.y;
-    placeCharOnBoard(_v3b.set(0,0.12,-0.06), 0, -1.1, P.lean*0.42);
+    // Keep the hips inside the legs' reachable arc. Besides preventing hover,
+    // this gives the neutral ride a visibly compressed, ready-to-react stance.
+    const crouch=0.38+0.12*P.pumpF+0.025*Math.abs(P.lean);
+    placeCharOnBoard(_v3b.set(0,-crouch,-0.06), 0, -Math.PI*0.5, P.lean*0.42);
     resetPose(); poseSurf(P.lean, P.pumpF, t);
     trackRide(dt, s, spd);
     HUD.prompt(P.tube>0
@@ -3060,19 +3323,33 @@ function shortAngle(from,to){
 }
 
 // ---------- camera ----------
-const CAM = { mode:'tp', yaw:Math.PI, pitch:0.30, dist:7.5 };
+const CAM = { mode:'tp', yaw:Math.PI, pitch:0.30, dist:7.5, waveDip:0, tubeK:0 };
 function updateCamera(dt){
   charRoot.updateMatrixWorld(true);
   if (CAM.mode==='tp'){
     _v3.copy(charRoot.position);
     // the seat blend moves the root ~0.85m — track it so the look target never snaps
     const seatOff = lerp(0.8, 1.5, sstep(0, 1, player.sitK));
-    _v3.y += (player.state==='prone'||player.state==='duck'||player.state==='catch'
+    const riderLook=(player.state==='prone'||player.state==='duck'||player.state==='catch'
            || player.state==='sit') ? seatOff : 1.35;
-    const cp = Math.cos(CAM.pitch), sp = Math.sin(CAM.pitch);
-    _v3b.set(_v3.x - Math.sin(CAM.yaw)*cp*CAM.dist,
-             _v3.y + sp*CAM.dist,
-             _v3.z - Math.cos(CAM.yaw)*cp*CAM.dist);
+    // Inside a barrel the chase camera drops beneath the lip instead of
+    // hovering above it, while still keeping the rider fully framed.
+    _v3.y += lerp(riderLook,0.65,CAM.tubeK);
+    let waveWant=0;
+    if (!dragging && (player.state==='prone'||player.state==='sit'||player.state==='catch')){
+      for(const s of swells){
+        const d=player.pos.z-s.zc;
+        if (d>7&&d<62&&s.wash>0.55) waveWant=Math.max(waveWant,sstep(60,15,d)*sstep(0.55,1.8,s.amp));
+      }
+    }
+    CAM.waveDip += (waveWant-CAM.waveDip)*damp(waveWant>CAM.waveDip?2.2:1.2,dt);
+    CAM.tubeK += ((player.tube>0?1:0)-CAM.tubeK)*damp(player.tube>0?5:2.4,dt);
+    const viewPitch=lerp(lerp(CAM.pitch,Math.min(CAM.pitch,0.055),CAM.waveDip),0.035,CAM.tubeK);
+    const viewDist=lerp(CAM.dist,4.7,CAM.tubeK);
+    const cp = Math.cos(viewPitch), sp = Math.sin(viewPitch);
+    _v3b.set(_v3.x - Math.sin(CAM.yaw)*cp*viewDist,
+             _v3.y + sp*viewDist,
+             _v3.z - Math.cos(CAM.yaw)*cp*viewDist);
     const floor = Math.max(surfY(_v3b.x,_v3b.z,simT), terrainY(_v3b.x,_v3b.z)) + 0.45;
     if (_v3b.y < floor) _v3b.y = floor;
     camera.position.lerp(_v3b, damp(11,dt));
@@ -3094,6 +3371,7 @@ function updateCamera(dt){
 // ---------- input ----------
 const K = {w:false,a:false,s:false,d:false,sh:false,sp:false,e:false};
 let started=false, paused=false;
+const TEST_MODE = new URLSearchParams(location.search).has('test');
 const KEYMAP = {KeyW:'w',ArrowUp:'w',KeyA:'a',ArrowLeft:'a',KeyS:'s',ArrowDown:'s',KeyD:'d',ArrowRight:'d',
   ShiftLeft:'sh',ShiftRight:'sh',Space:'sp',KeyE:'e'};
 document.getElementById('prompt').style.display='none';
@@ -3106,6 +3384,7 @@ addEventListener('keydown', ev=>{
     else if (ev.code==='Digit2') selectBoard('fun');
     else if (ev.code==='Digit3') selectBoard('long');
     else if (ev.code==='KeyR') selectRider(RIDER.key==='kai' ? 'mara' : 'kai');
+    else if (ev.code==='KeyF') toggleFullscreen();
     return;
   }
   if (ev.target && (ev.target.tagName==='INPUT' || ev.target.tagName==='TEXTAREA')) return;
@@ -3113,7 +3392,8 @@ addEventListener('keydown', ev=>{
   if (k){ if(!ev.repeat) K[k]=true; ev.preventDefault(); return; }
   if (ev.repeat) return;
   if (ev.code==='KeyC') CAM.mode = CAM.mode==='tp'?'fp':'tp';
-  if (ev.code==='KeyP' || ev.code==='Escape') togglePause();
+  if (ev.code==='KeyF') toggleFullscreen();
+  if (ev.code==='KeyP' || (ev.code==='Escape' && !document.fullscreenElement)) togglePause();
   if (ev.code==='KeyM') SFX.toggleMute();
   if (ev.code==='KeyL') HUD.lb(true);
 });
@@ -3134,6 +3414,10 @@ cv.addEventListener('pointermove', ev=>{
 addEventListener('wheel', ev=>{ CAM.dist = clamp(CAM.dist*(1+ev.deltaY*0.0011), 3.2, 14); }, {passive:true});
 cv.addEventListener('contextmenu', ev=>ev.preventDefault());
 document.addEventListener('visibilitychange', ()=>{ if (document.hidden && started && !paused) togglePause(); });
+function toggleFullscreen(){
+  if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+  else document.documentElement.requestFullscreen().catch(()=>{});
+}
 
 // ---------- audio (all procedural web audio, zero asset files) ----------
 const SFX = {
@@ -3344,6 +3628,7 @@ const HUD = {
   underwater(b){ $('underwater').style.display = b?'block':'none'; },
   barrel(tv){
     const b=$('barrelhud');
+    $('barrelfx').classList.toggle('on',tv!==null);
     if (tv===null){ b.style.display='none'; return; }
     b.style.display='block';
     $('barrelT').textContent = tv.toFixed(1)+'s';
@@ -3450,7 +3735,10 @@ function selectRider(k){
   document.querySelectorAll('#riderSel .selcard').forEach(b=>
     b.classList.toggle('sel', b.dataset.rider===k));
   try{ localStorage.setItem('pp2.rider', k); }catch(e){}
-  if (RIDER.key !== k || !J.pelvis) buildRig(k);
+  if (RIDER.key !== k || !J.pelvis){
+    buildRig(k);
+    HAIRS.x=HAIRS.vx=HAIRS.z=HAIRS.vz=0;HAIRS.inited=false;
+  }
 }
 document.querySelectorAll('#boardSel .selcard').forEach(b=>b.onclick = ()=>selectBoard(b.dataset.board));
 document.querySelectorAll('#riderSel .selcard').forEach(b=>b.onclick = ()=>selectRider(b.dataset.rider));
@@ -3464,6 +3752,18 @@ document.querySelectorAll('#riderSel .selcard').forEach(b=>b.onclick = ()=>selec
 }
 $('btnStart').onclick = ()=>{
   $('start').style.display='none';
+  document.body.classList.add('game-started');
+  menuKey.visible=false;
+  player.state='ground'; player.pos.set(6,terrainY(6,62),62); player.yaw=Math.PI;
+  player.spd=0; player.phase=0; player.push.set(0,0,0);
+  charRoot.position.copy(player.pos);
+  _e.set(0,player.yaw,0);charRoot.quaternion.setFromEuler(_e);
+  // Menu preview foot plants belong to the showcase location. Force a fresh
+  // heel capture at the gameplay spawn so IK never reaches back toward the menu.
+  GAIT.stL=GAIT.stR=false;
+  HAIRS.x=HAIRS.vx=HAIRS.z=HAIRS.vz=0;HAIRS.inited=false;
+  boardG.position.set(player.pos.x,player.pos.y+0.9,player.pos.z);
+  CAM.mode='tp'; CAM.yaw=Math.PI; CAM.pitch=0.30; CAM.dist=7.5;
   SFX.start(); started=true; HUD.stats();
 };
 
@@ -3489,25 +3789,95 @@ window.PP_DBG = ()=>{
            hipR:jw('hipR'), kneeR:jw('kneeR'), ankleR:jw('ankleR'),
            shL:jw('shoulderL'), elL:jw('elbowL'), wrL:jw('wristL')},
     boardY:+boardG.position.y.toFixed(2), waterY:+waterH(player.pos.x,player.pos.z,simT).toFixed(2),
-    _p:player, _c:CAM, _sw:swells, _spawn:spawnSwell};
+    _p:player, _c:CAM, _sw:swells, _spawn:spawnSwell,
+    _root:charRoot, _suit:suitMesh, _sk:SKEL};
+};
+window.render_game_to_text = ()=>JSON.stringify({
+  coordinates:'world x runs along shore; z<0 is ocean/seaward, +z is beach/shoreward; y is up',
+  mode:started ? (paused ? 'paused' : player.state) : 'menu',
+  selection:{rider:RIDER.key, board:BOARD.key},
+  player:{
+    x:+player.pos.x.toFixed(2), y:+player.pos.y.toFixed(2), z:+player.pos.z.toFixed(2),
+    yaw:+player.yaw.toFixed(3), speed:+player.spd.toFixed(2),
+    velocity:{x:+player.vel.x.toFixed(2),z:+player.vel.z.toFixed(2)},
+    onFace:+player.onFace.toFixed(2), tube:player.tube>0, tubeTime:+player.tubeT.toFixed(2),
+  },
+  ride:{time:+player.ride.t.toFixed(2), distance:+player.ride.dist.toFixed(1), maxSpeed:+player.ride.vmax.toFixed(2)},
+  swells:swells.filter(s=>s.wash>0.25).map(s=>({
+    x:+s.xc.toFixed(1),z:+s.zc.toFixed(1),amp:+s.amp.toFixed(2),speed:+s.c.toFixed(2),
+    break:+s.bf.toFixed(2),barrel:+s.brl.toFixed(2),direction:s.dir,closeout:s.closeout,
+    broken:[+s.bL.toFixed(1),+s.bR.toFixed(1)],
+  })),
+  camera:{mode:CAM.mode,yaw:+CAM.yaw.toFixed(3),pitch:+CAM.pitch.toFixed(3),distance:+CAM.dist.toFixed(2)},
+  session:{...player.session},
+});
+window.PP_STAGE = name=>{
+  if (!TEST_MODE) return false;
+  started=true; paused=false; $('start').style.display='none';
+  document.body.classList.add('game-started'); menuKey.visible=false;
+  swells.length=0; bores.length=0;
+  player.state='sit'; player.spd=0; player.vel.set(0,0,0); player.push.set(0,0,0);
+  player.swell=null; player.tube=0; player.tubeT=0; player.sitK=1; player.yaw=Math.PI;
+  CAM.mode='tp'; CAM.yaw=Math.PI; CAM.pitch=0.22; CAM.dist=7.5; CAM.waveDip=0;
+  let s=null;
+  if (name==='forming'){
+    player.pos.set(0,waterH(0,-79,simT),-79);
+    s=spawnSwell(2.9,0,78,3,1,false);
+    if(s){s.zc=-98;s.c=0;s.peelRate=0;s.breaking=false;s.bL=9999;s.bR=-9999;s.wash=1;}
+  } else if (name==='barrel'||name==='ride'||name==='ridebarrel'){
+    player.pos.set(10,waterH(10,-76,simT),-76);
+    s=spawnSwell(name==='ride'?1.45:3.4,0,82,name==='ride'?2:4,1,false);
+    if(s){s.zc=-85;s.c=0;s.peelRate=0;s.breaking=true;s.bL=-18;s.bR=0;s.x0=0;s.bf=1;s.brl=name==='ride'?0:1;s.tBrk=1.2;s.wash=1;}
+  } else return false;
+  if((name==='ride'||name==='ridebarrel')&&s){
+    player.state='surf'; player.sitK=0; player.swell=s; player.onFace=1;
+    player.pos.set(10,waterH(10,-83.3,simT),-83.3);
+    player.yaw=Math.PI/2; player.hYaw=Math.PI/2; player.vel.set(6.2,0,0.10); player.spd=6.2;
+    player.ride.t=0.01; player.ride.dist=0; player.ride.vmax=0;
+    CAM.yaw=Math.PI/2; CAM.pitch=0.13; CAM.dist=6.2;
+  }
+  boardG.position.copy(player.pos); charRoot.position.copy(player.pos);
+  return true;
 };
 setEnvIntensity(scene, 0.55);
 const clock = new THREE.Clock();
 camera.position.set(6, 5, 78); camera.lookAt(6, 1, 0);
-renderer.setAnimationLoop(()=>{
-  const dt = Math.min(clock.getDelta(), 0.05);
+function updateMenuPreview(dt){
+  const P=player, z=58, y=terrainY(0,z);
+  P.state='ground'; P.pos.set(0,y,z); P.spd=0;
+  P.yaw = 0.72+Math.sin(simT*0.42)*0.10;  // three-quarter view reveals the board tucked under the arm
+  charRoot.position.copy(P.pos);
+  _e.set(0,P.yaw,0); charRoot.quaternion.setFromEuler(_e);
+  resetPose();
+  setJ('chest',Math.sin(simT*1.2)*0.018);
+  setJ('neck',-0.025,Math.sin(simT*0.35)*0.08,0);
+  setJ('shoulderR',0,0,-0.06);
+  poseCarry();
+  carryBoard(dt);
+  animPre(dt,simT);
+  easeJoints(dt,9);
+  animPost(dt,simT);
+  // Shoreward camera puts the ocean behind the live model and leaves UI-safe side gutters.
+  menuKey.visible=true;
+  menuKey.position.set(-3,y+5.5,z+4.5); menuKey.target.position.set(0,y+1,z);
+  camera.position.set(1.35,y+1.38,z+3.65);
+  camera.lookAt(_v3.set(0,y+0.92,z));
+}
+function simulateStep(dt){
   if (!paused){
     simT += dt;
     updateSpawner(dt);
     updateSwells(dt, simT);
-    if (started) updatePlayer(dt);
+    BARREL_VIS.update(simT);
+    CREST_VIS.update(simT);
+    if (started) updatePlayer(dt); else updateMenuPreview(dt);
     updateFace(dt);
     oceanUniforms.uTime.value = simT;
     if (terrain.material.userData.sh) terrain.material.userData.sh.uniforms.uT.value = simT;
     for (const p of palms){ p.userData.fronds.rotation.z = Math.sin(simT*0.85+p.userData.ph)*0.045; }
     sun.position.copy(player.pos).addScaledVector(CFG.sunDir, 190);
     sun.target.position.copy(player.pos);
-    updateCamera(dt);
+    if (started) updateCamera(dt);
     updateCrestSpray(dt);
     SPRAY.tick();
     RINGS.tick();
@@ -3518,10 +3888,23 @@ renderer.setAnimationLoop(()=>{
     HUD.waveMeter(); HUD.cards(dt); HUD.radar(dt); HUD.tickAlert();
     SFX.tick(simT);
   }
+}
+function renderFrame(){
   // flag shadows only for the MAIN render (prepasses must not consume the update)
   shadowTick ^= 1;
   renderer.shadowMap.needsUpdate = quality==='high' || shadowTick===0;
   if (composer) composer.render(); else renderer.render(scene, camera);
+}
+// Deterministic hook used by automated playthroughs. Normal play remains clock-driven.
+window.advanceTime = ms=>{
+  const steps=Math.max(1,Math.round(clamp(Number(ms)||0,0,10000)/(1000/60)));
+  for(let i=0;i<steps;i++) simulateStep(1/60);
+  renderFrame();
+};
+renderer.setAnimationLoop(()=>{
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if (!TEST_MODE) simulateStep(dt);
+  renderFrame();
 });
 </script>
 </body>
