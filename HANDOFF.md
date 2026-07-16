@@ -1,4 +1,4 @@
-# HANDOFF — Penguin Point 2
+# HANDOFF — surf-js
 
 State of the world as of 2026-07-13 (v4 visual-upgrade session), plus the roadmap for the next session. Read this before touching `index.php`.
 
