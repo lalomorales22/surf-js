@@ -1,6 +1,6 @@
 <?php
 /**
- * PENGUIN POINT 2 — single-file three.js surf sim + sqlite leaderboard
+ * SURF-JS — single-file three.js surf sim + sqlite leaderboard
  * drop on bluehost / raspberry pi / `php -S localhost:8000` and go surf.
  *
  * php layer: self-provisioning sqlite (./data/surf.sqlite), csrf-guarded
@@ -122,7 +122,7 @@ $CSRF = htmlspecialchars($_SESSION['csrf'], ENT_QUOTES, 'UTF-8');
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-<title>PENGUIN POINT 2 — surf</title>
+<title>surf-js — surf</title>
 <style nonce="<?= $NONCE ?>">
 :root{
   --ink:#0b2233; --foam:#f4fbfd; --teal:#19c1d4; --sun:#ffb45e;
@@ -298,7 +298,7 @@ button.ghost{background:rgba(255,255,255,.1);color:var(--foam);border:1px solid 
 <body>
 <div id="ui">
   <div id="topbar">
-    <div class="panel disp" id="brand"><span class="peng">&#9679;</span> PENGUIN POINT 2</div>
+    <div class="panel disp" id="brand"><span class="peng">&#9679;</span> surf-js</div>
     <div class="panel" id="stats">waves <b id="stWaves">0</b> &nbsp;&middot;&nbsp; best <b id="stBest">0.0s</b>
       &nbsp;&middot;&nbsp; barrel <b id="stTube">&mdash;</b> &nbsp;&middot;&nbsp; face <b id="stFace">&mdash;</b></div>
   </div>
@@ -354,7 +354,7 @@ button.ghost{background:rgba(255,255,255,.1);color:var(--foam);border:1px solid 
 <div id="start">
   <section class="startHero">
     <div class="peng">&#128039;</div>
-    <h1>Penguin<br>Point</h1>
+    <h1>surf<br>-js</h1>
     <div class="sub">a single-file surf sim</div>
     <div class="liveTag">live procedural rider preview</div>
   </section>
@@ -395,7 +395,7 @@ import {SMAAPass} from 'three/addons/postprocessing/SMAAPass.js';
 import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
 
 /* ============================================================
-   PENGUIN POINT 2 — game module
+   SURF-JS — game module
    layout: config / shared wave+swash math (JS<->GLSL parity) /
    post-fx tiers / sky+env / wet sand / terrain / under-pass /
    props / ocean+lip curl / swash strip / spray / swells+bores /
@@ -672,7 +672,7 @@ try {
 } catch(e){
   const el=document.getElementById('err');
   el.style.display='flex';
-  el.firstElementChild.textContent='webgl is unavailable in this browser — penguin point needs it to render the ocean.';
+  el.firstElementChild.textContent='webgl is unavailable in this browser — surf-js needs it to render the ocean.';
   throw e;
 }
 renderer.outputColorSpace = THREE.SRGBColorSpace;
