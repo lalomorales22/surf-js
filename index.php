@@ -1162,6 +1162,113 @@ function buildRocks(){
 }
 buildRocks();
 
+// ---------- props: beach set dressing (umbrella, chair, sunbathers) ----------
+// All procedural like the palms. These are pure scenery: no collision, and they
+// stay off layer 1 so they cost nothing in the planar reflection prepass.
+const beachFolk = [];
+const SKINS  = [0xf1c9a4, 0xd9a172, 0xa9713f, 0x7a4a26, 0xf6d9b8];
+const SUITS  = [0xe4573f, 0x2f8fb8, 0xf0b429, 0x8e5aa8, 0x2fa36b, 0xe07a9c, 0x35485e];
+const npcMats = new Map();   // colour -> material, so 8 figures don't make 40 materials
+const npcMat = c => { if(!npcMats.has(c)) npcMats.set(c,
+  new THREE.MeshStandardMaterial({color:c, roughness:0.82})); return npcMats.get(c); };
+
+function buildUmbrella(x, z, tilt){
+  const grp = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.055,2.5,6),
+    new THREE.MeshStandardMaterial({color:0xd8d2c6, roughness:0.7}));
+  pole.position.y = 1.25; pole.castShadow = true; grp.add(pole);
+  // canopy as a low cone; alternating panel colours come from a vertex-colour
+  // ramp rather than a texture, to keep this asset-free like everything else
+  const cg = new THREE.ConeGeometry(1.42, 0.55, 12, 1, true);
+  const cols = []; const a = new THREE.Color(SUITS[(Math.random()*SUITS.length)|0]);
+  const b = new THREE.Color(0xf7f3ea);
+  const cp = cg.attributes.position;
+  for (let i=0;i<cp.count;i++){
+    const ang = Math.atan2(cp.getZ(i), cp.getX(i));
+    const c = (Math.floor((ang+Math.PI)/TAU*12) % 2) ? a : b;
+    cols.push(c.r, c.g, c.b);
+  }
+  cg.setAttribute('color', new THREE.Float32BufferAttribute(cols,3));
+  const canopy = new THREE.Mesh(cg, new THREE.MeshStandardMaterial({
+    vertexColors:true, roughness:0.75, side:THREE.DoubleSide}));
+  canopy.position.y = 2.42; canopy.castShadow = true; grp.add(canopy);
+  grp.position.set(x, terrainY(x,z), z);
+  grp.rotation.z = tilt; grp.rotation.y = rand(0,TAU);
+  scene.add(grp);
+  return grp;
+}
+
+function buildChair(x, z, yaw){
+  const grp = new THREE.Group();
+  const frame = new THREE.MeshStandardMaterial({color:0xe8e4da, roughness:0.6});
+  const fabric = npcMat(SUITS[(Math.random()*SUITS.length)|0]);
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.62,0.07,0.95), fabric);
+  seat.position.set(0,0.36,0); seat.castShadow = true; grp.add(seat);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.62,0.07,0.78), fabric);
+  back.position.set(0,0.62,-0.60); back.rotation.x = -0.85; back.castShadow = true; grp.add(back);
+  for (const sx of [-0.27,0.27]) for (const sz of [-0.38,0.38]){
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.36,5), frame);
+    leg.position.set(sx,0.18,sz); leg.castShadow = true; grp.add(leg);
+  }
+  grp.position.set(x, terrainY(x,z), z); grp.rotation.y = yaw;
+  scene.add(grp);
+  return grp;
+}
+
+// One low-poly figure. kind: 'stand' | 'sit'. Limbs are plain primitives — the
+// skinned rig is a module-level singleton (one J/BONES/SKEL), so it cannot be
+// instanced for crowd work.
+function buildNPC(x, z, kind){
+  const grp = new THREE.Group();
+  const skin = npcMat(SKINS[(Math.random()*SKINS.length)|0]);
+  const suit = npcMat(SUITS[(Math.random()*SUITS.length)|0]);
+  const torso = new THREE.Group();
+  const sit = kind === 'sit';
+  // Proportions matter here: arms must clear the chest capsule or they vanish
+  // inside it. Chest radius 0.16 + arm radius 0.05 = 0.21 is merely tangent, so
+  // they sit at 0.225. Legs are centred so the capsule's bottom cap lands on y=0.
+  const chest = new THREE.Mesh(new THREE.CapsuleGeometry(0.16,0.40,3,7), suit);
+  chest.position.y = sit ? 0.44 : 0.88; chest.castShadow = true; torso.add(chest);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.052,0.062,0.09,6), skin);
+  neck.position.y = sit ? 0.79 : 1.21; torso.add(neck);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.115,10,8), skin);
+  head.position.y = sit ? 0.90 : 1.285; head.castShadow = true; torso.add(head);
+  for (const s of [-1,1]){
+    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.05,0.32,3,5), skin);
+    if (sit){ arm.position.set(s*0.225,0.42,0.12); arm.rotation.x = 0.80; }
+    else    { arm.position.set(s*0.225,0.95,0); arm.rotation.z = s*0.10; }
+    arm.castShadow = true; torso.add(arm);
+    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.062,0.46,3,5), suit);
+    if (sit){ leg.position.set(s*0.09,0.16,0.36); leg.rotation.x = 1.42; }
+    else    { leg.position.set(s*0.09,0.292,0); }
+    leg.castShadow = true; grp.add(leg);
+  }
+  grp.add(torso);
+  if (sit){   // towel under the sitters
+    const tw = new THREE.Mesh(new THREE.PlaneGeometry(1.15,1.5),
+      npcMat(SUITS[(Math.random()*SUITS.length)|0]));
+    tw.rotation.x = -Math.PI/2; tw.position.set(0,0.012,0.18); tw.receiveShadow = true;
+    grp.add(tw);
+  }
+  grp.position.set(x, terrainY(x,z), z);
+  grp.rotation.y = rand(0,TAU);
+  // Built ~1.4m tall; scale to adult height against the ~1.75m rider, with a
+  // little variance so the crowd isn't eight clones. Origin is at the feet, so
+  // scaling from the group keeps everyone planted on the sand.
+  grp.scale.setScalar(1.25 * rand(0.94,1.09));
+  grp.userData = {torso, head, kind, ph:rand(0,TAU), y0:grp.position.y};
+  scene.add(grp); beachFolk.push(grp);
+  return grp;
+}
+
+// Spawn cluster: umbrella + chair sit just off the player's start mark, with the
+// rest of the crowd scattered up the dry sand well clear of the swash.
+buildUmbrella(10.6, 23.4, 0.10);
+buildChair(8.0, 21.9, -0.5);
+[[4.5,26,'sit'],[13.5,25,'sit'],[-9,19,'stand'],[-14,28,'sit'],
+ [24,30,'stand'],[31,22,'sit'],[-26,34,'stand'],[19,38,'sit']]
+  .forEach(([x,z,k])=>buildNPC(x,z,k));
+
 // ---------- ocean ----------
 const swU = {
   P: Array.from({length:CFG.maxSwells},()=>new THREE.Vector4(0,-9999,0,10)),
@@ -3892,7 +3999,8 @@ $('btnStart').onclick = ()=>{
   $('start').style.display='none';
   document.body.classList.add('game-started');
   menuKey.visible=false;
-  player.state='ground'; player.pos.set(6,terrainY(6,62),62); player.yaw=Math.PI;
+  // start on the dry sand beside the umbrella, not 60m up the beach
+  player.state='ground'; player.pos.set(6,terrainY(6,21),21); player.yaw=Math.PI;
   player.spd=0; player.phase=0; player.push.set(0,0,0);
   charRoot.position.copy(player.pos);
   _e.set(0,player.yaw,0);charRoot.quaternion.setFromEuler(_e);
@@ -4013,6 +4121,15 @@ function simulateStep(dt){
     oceanUniforms.uTime.value = simT;
     if (terrain.material.userData.sh) terrain.material.userData.sh.uniforms.uT.value = simT;
     for (const p of palms){ p.userData.fronds.rotation.z = Math.sin(simT*0.85+p.userData.ph)*0.045; }
+    // beach crowd: breathing sway + a slow head turn, phase-offset per figure so
+    // they never move in lockstep. Standing folk shift weight; sitters just breathe.
+    for (const f of beachFolk){
+      const u = f.userData, b = Math.sin(simT*1.15 + u.ph);
+      u.torso.rotation.z = b*0.022;
+      u.head.rotation.y  = Math.sin(simT*0.31 + u.ph*1.7)*0.55;
+      u.head.rotation.x  = Math.sin(simT*0.23 + u.ph)*0.12;
+      f.position.y = u.y0 + (u.kind==='stand' ? Math.abs(b)*0.013 : b*0.005);
+    }
     sun.position.copy(player.pos).addScaledVector(CFG.sunDir, 190);
     sun.target.position.copy(player.pos);
     if (started) updateCamera(dt);
