@@ -2871,13 +2871,15 @@ function updatePlayer(dt){
   case 'ground': {
     const d = depth();
     // camera-relative move
-    const ix=(K.d?1:0)-(K.a?1:0), iz=(K.w?1:0)-(K.s?1:0);
+    const ix=steerX(), iz=steerZ();
     const moving = ix||iz;
     let sp = 0;
     if (moving){
       const my = CAM.yaw + Math.atan2(-ix, iz);
       P.yaw += shortAngle(P.yaw, my) * damp(10,dt);
-      sp = (K.sh ? CFG.run : CFG.walk) * (1 - clamp(d,0,0.95)*0.62);
+      // stick deflection scales pace, so a half-push is a walk and a full push is a jog
+      const mag = clamp(Math.hypot(ix,iz), 0, 1);
+      sp = (K.sh ? CFG.run : CFG.walk) * (1 - clamp(d,0,0.95)*0.62) * mag;
     }
     P.spd = lerp(P.spd, sp, damp(8,dt));
     yawFwd(P.yaw,_fwd);
@@ -2930,7 +2932,7 @@ function updatePlayer(dt){
 
   case 'prone': {
     const d = depth();
-    const turn=(K.a?1:0)-(K.d?1:0);
+    const turn=-steerX();   // steerX is +right; yaw here is +left
     P.yaw += turn*1.25*BOARD.turn*dt/(1+P.spd*0.35);
     const paddling = K.w?1:0;
     P.padT = paddling ? P.padT+dt : 0;
@@ -3035,7 +3037,7 @@ function updatePlayer(dt){
 
   case 'sit': {
     P.spd = lerp(P.spd, 0, damp(2,dt));
-    const turn=(K.a?1:0)-(K.d?1:0);
+    const turn=-steerX();   // steerX is +right; yaw here is +left
     P.yaw += turn*0.9*dt;
     P.pos.addScaledVector(P.push, dt);
     const f = foamAt(P.pos.x,P.pos.z);
@@ -3070,7 +3072,7 @@ function updatePlayer(dt){
     if (!s || !swells.includes(s) || s.wash<0.5){ P.state='prone'; P.swell=null; break; }
     P.timer += dt;
     // angled takeoff: keep steering while gliding in
-    const turn=(K.a?1:0)-(K.d?1:0);
+    const turn=-steerX();   // steerX is +right; yaw here is +left
     let ang = shortAngle(0, P.yaw) + turn*1.1*dt;
     P.yaw = clamp(ang, -0.95, 0.95);
     yawFwd(P.yaw,_fwd);
@@ -3156,7 +3158,7 @@ function updatePlayer(dt){
     P.vel.x += -9.81*dhdx*0.78*dt;
     P.vel.z += -9.81*dhdz*0.78*dt;
     // rail carve from lean, with a grip limit -> drift/slide when overpushed
-    const leanIn = (K.d?1:0)-(K.a?1:0);
+    const leanIn = steerX();   // continuous on a stick: the carve is no longer quantized
     P.lean = lerp(P.lean, leanIn, damp(5.5,dt));
     let spd = Math.max(P.vel.length(), 0.01);
     _v3.copy(P.vel).divideScalar(spd);
@@ -3370,6 +3372,10 @@ function updateCamera(dt){
 
 // ---------- input ----------
 const K = {w:false,a:false,s:false,d:false,sh:false,sp:false,e:false};
+// KB mirrors only what the KEYBOARD is physically holding. K is the merged view the
+// sim reads, and the game consumes edge actions out of it (K.sp=false etc), so the
+// gamepad poller needs KB to tell "player released W" from "the sim ate this frame".
+const KB = {w:false,a:false,s:false,d:false};
 let started=false, paused=false;
 const TEST_MODE = new URLSearchParams(location.search).has('test');
 const KEYMAP = {KeyW:'w',ArrowUp:'w',KeyA:'a',ArrowLeft:'a',KeyS:'s',ArrowDown:'s',KeyD:'d',ArrowRight:'d',
@@ -3389,7 +3395,7 @@ addEventListener('keydown', ev=>{
   }
   if (ev.target && (ev.target.tagName==='INPUT' || ev.target.tagName==='TEXTAREA')) return;
   const k = KEYMAP[ev.code];
-  if (k){ if(!ev.repeat) K[k]=true; ev.preventDefault(); return; }
+  if (k){ if(!ev.repeat){ K[k]=true; if(k in KB) KB[k]=true; } ev.preventDefault(); return; }
   if (ev.repeat) return;
   if (ev.code==='KeyC') CAM.mode = CAM.mode==='tp'?'fp':'tp';
   if (ev.code==='KeyF') toggleFullscreen();
@@ -3398,9 +3404,9 @@ addEventListener('keydown', ev=>{
   if (ev.code==='KeyL') HUD.lb(true);
 });
 addEventListener('keyup', ev=>{
-  const k=KEYMAP[ev.code]; if(k) K[k]=false;   // clearing a key is always safe
+  const k=KEYMAP[ev.code]; if(k){ K[k]=false; if(k in KB) KB[k]=false; }   // clearing a key is always safe
 });
-addEventListener('blur', ()=>{ for (const k in K) K[k]=false; });
+addEventListener('blur', ()=>{ for (const k in K) K[k]=false; for (const k in KB) KB[k]=false; });
 let dragging=false;
 const cv = renderer.domElement;
 cv.addEventListener('pointerdown', ev=>{ dragging=true; cv.setPointerCapture(ev.pointerId); });
@@ -3412,6 +3418,75 @@ cv.addEventListener('pointermove', ev=>{
   CAM.pitch = CAM.mode==='tp' ? clamp(CAM.pitch, 0.03, 1.15) : clamp(CAM.pitch, -1.15, 1.15);
 });
 addEventListener('wheel', ev=>{ CAM.dist = clamp(CAM.dist*(1+ev.deltaY*0.0011), 3.2, 14); }, {passive:true});
+
+// ---------- gamepad (DualSense / any standard-mapping pad) ----------
+// Pulled once per RENDERED frame, never from simulateStep() — advanceTime() must stay
+// deterministic. Digital buttons fold into K so every state-machine branch works
+// untouched; the left stick additionally publishes GP.x/GP.z as continuous floats,
+// which is the whole point: the keyboard can only ever lean -1/0/+1.
+const GP = {x:0, z:0, on:false};
+const GP_DZ = 0.18;                      // radial deadzone — DualSense sticks rest near ±0.05
+const GP_BTN = {POP:0, SIT:1, LB:2, CAM:3, DUCK:4, DUCK2:5, PAUSE:9,
+                UP:12, DOWN:13, LEFT:14, RIGHT:15};
+const gpPrev = [];                       // last frame's pressed state, for edge detection
+function gpDead(v){                      // rescale past the deadzone so travel starts at 0, not 0.18
+  const m = Math.abs(v);
+  return m < GP_DZ ? 0 : Math.sign(v)*(m-GP_DZ)/(1-GP_DZ);
+}
+function gpPad(){
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  for (const p of pads) if (p && p.connected && p.axes.length>=4) return p;
+  return null;
+}
+function pollGamepad(dt){
+  const p = gpPad();
+  if (!p){ GP.on=false; GP.x=GP.z=0; gpPrev.length=0; return; }
+  const btn = i => !!(p.buttons[i] && p.buttons[i].pressed);
+  const edge = i => { const now=btn(i), was=gpPrev[i]; gpPrev[i]=now; return now && !was; };
+
+  // start screen: let the pad drive the menu too, so you never reach for the keyboard
+  if (!started){
+    if (edge(GP_BTN.POP)) $('btnStart').click();   // reuse the button's own start path
+    else if (edge(GP_BTN.LEFT))  selectRider('kai');
+    else if (edge(GP_BTN.RIGHT)) selectRider('mara');
+    else if (edge(GP_BTN.UP))    selectBoard(BOARD.key==='long'?'fun':'short');
+    else if (edge(GP_BTN.DOWN))  selectBoard(BOARD.key==='short'?'fun':'long');
+    return;
+  }
+
+  // left stick -> analog steer/lean, d-pad folded in as a digital fallback
+  const dx = (btn(GP_BTN.RIGHT)?1:0)-(btn(GP_BTN.LEFT)?1:0);
+  const dz = (btn(GP_BTN.UP)?1:0)-(btn(GP_BTN.DOWN)?1:0);
+  GP.x = clamp(gpDead(p.axes[0]) + dx, -1, 1);
+  GP.z = clamp(-gpDead(p.axes[1]) + dz, -1, 1);   // axis 1 is +down; the sim wants +forward
+  GP.on = GP.x!==0 || GP.z!==0;
+
+  // level-triggered keys: OR with the keyboard so holding both never fights
+  K.d = KB.d || GP.x >  0.5;
+  K.a = KB.a || GP.x < -0.5;
+  K.w = KB.w || GP.z >  0.5;
+  K.s = KB.s || GP.z < -0.5;
+
+  // edge-triggered actions: the sim clears these itself, so only ever set on press
+  if (edge(GP_BTN.POP))  K.sp = true;
+  if (edge(GP_BTN.SIT))  K.e  = true;
+  if (edge(GP_BTN.DUCK) || edge(GP_BTN.DUCK2)) K.sh = true;
+  if (edge(GP_BTN.CAM))   CAM.mode = CAM.mode==='tp'?'fp':'tp';
+  if (edge(GP_BTN.LB))    HUD.lb(true);
+  if (edge(GP_BTN.PAUSE)) togglePause();
+
+  // right stick -> look, matching the pointer-drag clamps at the mouse handler
+  const rx = gpDead(p.axes[2]), ry = gpDead(p.axes[3]);
+  if (rx || ry){
+    CAM.yaw   -= rx*2.6*dt;
+    CAM.pitch += ry*1.9*dt;
+    CAM.pitch = CAM.mode==='tp' ? clamp(CAM.pitch, 0.03, 1.15) : clamp(CAM.pitch, -1.15, 1.15);
+  }
+}
+// Steering the sim reads: analog when the stick is live, else the old keyboard step.
+// +x is the rider's right, +z is forward — the sign convention K already used.
+function steerX(){ return GP.on ? GP.x : (K.d?1:0)-(K.a?1:0); }
+function steerZ(){ return GP.on ? GP.z : (K.w?1:0)-(K.s?1:0); }
 cv.addEventListener('contextmenu', ev=>ev.preventDefault());
 document.addEventListener('visibilitychange', ()=>{ if (document.hidden && started && !paused) togglePause(); });
 function toggleFullscreen(){
@@ -3903,6 +3978,7 @@ window.advanceTime = ms=>{
 };
 renderer.setAnimationLoop(()=>{
   const dt = Math.min(clock.getDelta(), 0.05);
+  if (!TEST_MODE) pollGamepad(dt);   // outside simulateStep: advanceTime() stays reproducible
   if (!TEST_MODE) simulateStep(dt);
   renderFrame();
 });
