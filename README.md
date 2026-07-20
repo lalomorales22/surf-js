@@ -17,6 +17,8 @@ php -S localhost:8000
 - **A live character menu** — the start screen shows the actual selected procedural rider holding the selected board, not a placeholder avatar. Kai and Mara have distinct silhouettes, faces, suit cuts, and hair, and all six rider/board combinations update live and persist between sessions.
 - **Pick your quiver** — three boards with real physics trade-offs: the 5'10" shortboard (quick rails, hard paddling, late-drop friendly), the 7'2" funboard (balanced), and the 9'1" log (glides into anything early, but slow to turn and loves to pearl). On land, the board is tucked under the arm with hand-to-rail IK instead of floating beside the rider.
 - **Visible wave faces and barrels** — crest highlights, trough drawdown, darker standing faces, breaking-lip foam, and pooled overhanging water shells make an incoming set readable from the lineup. Hollow waves open into a rendered tube with an interior surface, mouth, exit light, vignette, and tube-aware chase camera. Stall into the pocket, track the tube (time in the barrel scores 3×), and get spat out with the mist.
+- **Water that reflects you** — the ocean samples a planar mirror pass, so the rider, board, and pitching lip actually appear in the surface instead of a sky-only cube map. Sun glitter is a GGX lobe that stretches into a broad glint path across the chop rather than a single hot pixel, and depth colour is per-channel Beer-Lambert — red extinguishes first, so the shallows grade cyan → blue → navy on their own.
+- **A beach worth landing on** — you start a short walk from the waterline beside a striped umbrella and a lounge chair, with sunbathers scattered up the dry sand: some sitting on towels, some standing, each breathing and slowly turning their head on its own phase offset so the crowd never moves in lockstep. All procedural, like everything else.
 - **Manual takeoffs** — no auto-catch. Read the lineup radar, sit in the zone, turn shoreward, paddle until the face takes you, then hit SPACE. Graded takeoffs: early bogs, sweet ones fly, late ones airdrop with a real pearl risk.
 - **Momentum surfing** — your velocity lives on the moving face: gravity pulls you down-slope, rails carve with a grip limit (overpush and you slide), and pumps must be timed to the face. The rider lands side-on in a compressed stance with both feet IK-planted to the deck, then crouches deeper under pump and carve load; snaps / cutbacks / floaters are graded with speed-scaled spray.
 - **A living shoreline** — dedicated swash simulation: uprush/backwash sheets with lace foam and bubble decay, backwash colliding with the next bore, sediment stirred into the drain, and wet sand that darkens, turns glossy, and mirrors the sky and the surfer before drying out.
@@ -41,6 +43,21 @@ php -S localhost:8000
 
 **Start screen:** pick a rider and a board (click, or <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd> for the board and <kbd>R</kbd> to switch rider).
 
+### Gamepad
+
+A PS5 DualSense (or any standard-mapping pad) works over Bluetooth or USB-C with no driver and no helper app — the browser's Gamepad API reads it directly. Pair it and it's picked up automatically; the d-pad and ✕ also drive the start screen.
+
+| Control | Does |
+|---|---|
+| Left stick | paddle / steer — **analog**, so rail lean is continuous instead of the keyboard's hard left/right, and you can hold a carve just under the grip limit |
+| Right stick | look |
+| ✕ | pop up |
+| L1 / R1 | duck dive · kick out |
+| ○ / △ / □ | sit up · camera · leaderboard |
+| Options | pause |
+
+Keyboard and pad can be used at the same time; neither clears the other's state.
+
 **HUD:** wave-select cards (bottom-left) call each set — face height, LEFT/RIGHT/A-FRAME/CLOSEOUT, a purple **HOLLOW** tag when a wave will barrel over the bar, and seconds out. The **lineup radar** (bottom-right) shows every crest with its ETA, hollow waves in purple, where it's breaking (white), and the takeoff pockets (pulsing dots).
 
 ## Requirements
@@ -58,17 +75,20 @@ index.php
 ├─ PHP: sqlite provisioning (./data, web-access denied), CSRF, rate limit,
 │       ?action=leaderboard / ?action=save_ride, CSP + security headers
 ├─ CSS: sun-bleached poster UI system
-└─ ES module (~3k lines):
+└─ ES module (~3.8k lines):
    config → shared wave/swash math (authored in JS, mirrored into GLSL — one
    source of truth for physics AND rendering) → post-fx tiers → sky + env maps →
-   wet sand → terrain → refraction/depth prepass → ocean + forming-wall shading +
+   wet sand → terrain → palms/rocks/beach props + crowd → refraction/depth prepass →
+   ocean (planar reflection + GGX glint + Beer-Lambert depth) + forming-wall shading +
    crest ribbons + pooled barrel shells → swash strip → GPU spray → swell/bore lifecycle → rider presets →
    24-bone skinned surfer → pose library → IK / secondary motion / ragdoll →
-   board quiver (physics table) → state machine → camera → input →
+   board quiver (physics table) → state machine → camera → input (keyboard + gamepad) →
    procedural audio → HUD/radar/cards → leaderboard client → main loop
 ```
 
 The core invariant: `h(x, z, t)` and friends are written once in JavaScript and injected into GLSL with the same constants. The board you ride and the wave you see are the same equation.
+
+A second one worth knowing if you're hacking on it: the gamepad is polled from the render loop, never from `simulateStep()`, so `advanceTime()` stays deterministic and automated playthroughs remain reproducible.
 
 ## Deploying
 
