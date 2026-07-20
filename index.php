@@ -944,7 +944,11 @@ const _rv1=new THREE.Vector3(), _rv2=new THREE.Vector3(), _rv3=new THREE.Vector3
 const _reflVP = new THREE.Matrix4();
 function updateReflection(){
   const sh = terrain.material.userData.sh;
-  if (!REFL.on || !SET.refl){ if (sh) sh.uniforms.uReflOn.value = 0; return; }
+  if (!REFL.on || !SET.refl){
+    if (sh) sh.uniforms.uReflOn.value = 0;
+    WATER_UNI.uReflOn.value = 0;      // ocean falls back to the sky cube
+    return;
+  }
   REFL.frame ^= 1; if (REFL.frame) return;
   camera.getWorldPosition(_rv1); _rv1.y = -_rv1.y;
   camera.getWorldDirection(_rv2); _rv2.y = -_rv2.y;
@@ -957,6 +961,7 @@ function updateReflection(){
   reflCam.updateMatrixWorld(true);
   _reflVP.copy(reflCam.projectionMatrix).multiply(reflCam.matrixWorldInverse);
   if (sh){ sh.uniforms.uReflVP.value.copy(_reflVP); sh.uniforms.uReflOn.value = 1; }
+  WATER_UNI.uReflVP.value.copy(_reflVP); WATER_UNI.uReflOn.value = 1;
   const sav = renderer.shadowMap.autoUpdate;
   renderer.shadowMap.autoUpdate = false;
   renderer.setRenderTarget(reflRT);
@@ -1185,6 +1190,11 @@ const WATER_UNI = {
   uUnderOn:{value:0},
   uScreen:{value:new THREE.Vector2(1/1280,1/720)},
   uCamNF:{value:new THREE.Vector2(camera.near, camera.far)},
+  // the planar mirror pass already runs for the wet sand; the ocean samples the
+  // same target so the rider, board and lip actually appear in the water
+  uReflTex:{value:reflRT.texture},
+  uReflVP:{value:new THREE.Matrix4()},
+  uReflOn:{value:0},
 };
 const oceanUniforms = WATER_UNI;
 
@@ -1199,9 +1209,19 @@ void main(){
   float e = 0.35;
   float hx = waterH(p+vec2(e,0.0), t);
   float hz = waterH(p+vec2(0.0,e), t);
-  vN = normalize(vec3(-(hx-h)/e, 1.0, -(hz-h)/e));
   vec2 curl = lipCurl(p);
-  vWorld = vec3(p.x, h + curl.x, p.y + curl.y);
+  float hc = h + curl.x;              // displaced height at p (curl.x is dy)
+  // The thrown lip displaces y, so differencing waterH alone lights the most
+  // dramatic geometry in the scene with a stale, pre-curl normal. The extra
+  // lipCurl taps are only paid for inside the pocket, where curl is non-zero.
+  if (abs(curl.x) > 0.001){
+    hx += lipCurl(p+vec2(e,0.0)).x;
+    hz += lipCurl(p+vec2(0.0,e)).x;
+    vN = normalize(vec3(-(hx-hc)/e, 1.0, -(hz-hc)/e));
+  } else {
+    vN = normalize(vec3(-(hx-h)/e, 1.0, -(hz-h)/e));
+  }
+  vWorld = vec3(p.x, hc, p.y + curl.y);
   vec4 mv = modelViewMatrix * vec4(vWorld, 1.0);
   vViewZ = -mv.z;
   gl_Position = projectionMatrix * mv;
@@ -1214,6 +1234,7 @@ uniform vec3 uSkyH, uSkyZ, uDeep, uShal, uFogC; uniform float uFogD;
 uniform samplerCube uEnvCube;
 uniform sampler2D uUnderTex; uniform sampler2D uUnderDepth;
 uniform float uUnderOn; uniform vec2 uScreen; uniform vec2 uCamNF;
+uniform sampler2D uReflTex; uniform mat4 uReflVP; uniform float uReflOn;
 varying vec3 vWorld; varying vec3 vN; varying float vViewZ;
 ${'PLACEHOLDER_SHARED'}
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
@@ -1264,8 +1285,10 @@ void main(){
   // foam churns the surface: perturb the normal where it sits
   N = normalize(N + vec3(nz-0.5, 0.0, vnoise(vWorld.xz*3.1+13.7)-0.5)*F*0.55);
 
-  // base color by depth (absorption)
-  vec3 water = mix(uShal, uDeep, 1.0 - exp(-depth*0.5));
+  // base color by depth: Beer-Lambert per channel, so red dies off first and the
+  // shallows run cyan -> blue -> navy on their own instead of one authored lerp
+  vec3 absorb = exp(-depth * vec3(0.85, 0.38, 0.26));
+  vec3 water = mix(uDeep, uShal, absorb);
 
   // slope shading vs the sun — this is what makes swell faces READ as waves
   float ndl = clamp(dot(N, uSun), 0.0, 1.0);
@@ -1299,6 +1322,25 @@ void main(){
   vec3 R = reflect(-V, N);
   R.y = abs(R.y);
   vec3 skyCol = textureCube(uEnvCube, R).rgb * vec3(0.52,0.70,0.98);
+  // planar mirror on top of the cube: the cube is sky-only, so without this the
+  // rider and the lip cast no reflection at all. Ripple-distorted to hide 384px.
+  if (uReflOn > 0.5){
+    vec4 rp = uReflVP * vec4(vWorld, 1.0);
+    if (rp.w > 0.0){
+      vec2 ruv = rp.xy/rp.w * 0.5 + 0.5;
+      ruv += N.xz * 0.045;                       // chop breaks up the mirror
+      vec3 pl = texture2D(uReflTex, clamp(ruv, 0.002, 0.998)).rgb;
+      // fade at the frame edge so off-screen geometry doesn't smear inward.
+      // sstep (not built-in smoothstep) because two of these run descending,
+      // and smoothstep with edge0 >= edge1 is undefined in GLSL.
+      float edge = sstep(0.0,0.12,ruv.x) * sstep(1.0,0.88,ruv.x)
+                 * sstep(0.0,0.12,ruv.y) * sstep(1.0,0.88,ruv.y);
+      // Same blue tint the cube gets. The mirror is mostly sky, so leaving it
+      // untinted just launders bright haze into the sea and drains the blue --
+      // this pass exists to add the rider and lip, not to re-render the sky.
+      skyCol = mix(skyCol, pl*vec3(0.52,0.70,0.98), edge*0.30);
+    }
+  }
   float fres = 0.02 + 0.98*pow(1.0 - max(dot(N,V),0.0), 5.0);
   // Standing faces stay green/dark instead of reflecting so much sky that
   // their height disappears from the lineup camera.
@@ -1310,7 +1352,28 @@ void main(){
   // rim light on foam edges + sun glint (killed by foam)
   float rim = pow(1.0 - max(dot(N,V),0.0), 3.0);
   col += vec3(0.95,0.98,1.0) * rim * F * 0.38;
-  float spec = pow(max(dot(R, uSun), 0.0), 620.0) * 2.4 * (1.0-F);
+  // GGX lobe rather than a single Phong point: real sun glitter is a broad
+  // anisotropic streak, and a roughness term is what stretches it. SPEC_GAIN is
+  // the one number to tune if the glint reads too hot or too dull.
+  const float SPEC_GAIN = 0.40;
+  // This surface comes through back-facing, so the gl_FrontFacing flip at the top
+  // of main() leaves N pointing DOWN. The sky reflection above hides that with
+  // R.y = abs(R.y); a half-vector BRDF can't, and silently evaluates to zero.
+  vec3 Ns = N.y < 0.0 ? -N : N;
+  vec3 Hv = normalize(V + uSun);
+  // a2 = rough^4, i.e. alpha = rough^2. Phong exponent 620 corresponds to
+  // alpha ~= sqrt(2/622) = 0.057, so rough ~= 0.24 merely MATCHES the old lobe;
+  // going above that is what actually broadens the glint into a glitter path.
+  float rough = clamp(0.30 + F*0.22 + wall*0.035, 0.03, 0.6);
+  float a2 = rough*rough*rough*rough;
+  float ndh = max(dot(Ns, Hv), 0.0);
+  float dnm = ndh*ndh*(a2 - 1.0) + 1.0;
+  float Dg  = a2 / (3.14159265*dnm*dnm);
+  float ndv = max(dot(Ns, V), 1e-3);
+  float ndlS= max(dot(Ns, uSun), 0.0);
+  float kg  = rough*rough*0.5;
+  float Gg  = (ndv/(ndv*(1.0-kg)+kg)) * (ndlS/(ndlS*(1.0-kg)+kg));
+  float spec = min(Dg*Gg*ndlS*SPEC_GAIN, 3.4) * (1.0-F);   // clamped: kills fireflies
   col += vec3(1.0,0.93,0.8)*spec;
 
   // manual exp2 fog (eased so distant swell lines stay readable)
