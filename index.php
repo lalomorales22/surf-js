@@ -2452,6 +2452,24 @@ function poseProne(paddleF, phase){
   setJ('hipL', 0.06, 0, -0.05); setJ('hipR', 0.06, 0, 0.05);
   setJ('ankleL', 0.7); setJ('ankleR', 0.7);
   if (paddleF > 0.02){
+    // Body roll toward the catching arm. This is the single biggest tell that a
+    // paddler is a person and not a pair of arms on a plank -- real paddling
+    // rolls the torso onto the stroking side. Y is the long axis here (the root
+    // is pitched face-down), and animPre ADDS its yaw lag to spine2/chest, so
+    // these compose rather than fight. Split down the chain so it reads as a
+    // wave travelling up the torso instead of one rigid slab.
+    const roll = Math.sin(phase) * 0.30 * paddleF;
+    setJ('spine',  0,     -roll*0.55, 0);
+    setJ('spine2', 0,     -roll*0.30, 0);
+    setJ('chest', -0.12,  -roll*0.22, 0);
+    // head counter-rotates to hold its line down the board, the way a swimmer
+    // keeps their eyes forward while the shoulders turn under them
+    setJ('neck', -0.55, roll*0.34, 0); setJ('head', -0.18, roll*0.20, 0);
+    // legs trail rather than kick, but a slow scissor at a fraction of the arm
+    // cadence keeps them from looking welded to the deck
+    const fl = Math.sin(phase*0.62) * 0.055 * paddleF;
+    setJ('hipL', 0.06 + fl, 0, -0.05); setJ('hipR', 0.06 - fl, 0, 0.05);
+    setJ('ankleL', 0.7 + fl*0.9); setJ('ankleR', 0.7 - fl*0.9);
     const aL = phase, aR = phase + Math.PI;
     const armX = a => -1.5 - 1.15*Math.sin(a);
     const armZ = a => 0.30 + 0.18*Math.cos(a);
@@ -2709,11 +2727,39 @@ function animPost(dt, t){
         const ph = P.phase + (S==='R' ? Math.PI : 0);
         const c = (ph % TAU)/TAU;
         const side = S==='L' ? -1 : 1;
+        // Nobody's two arms are identical; a few percent of asymmetry stops the
+        // stroke reading as a machine mirroring itself about the stringer.
+        const asym = S==='L' ? 1.0 : 0.945;
+        // Board-local frame: +z is toward the nose (forward), the shoulder sits
+        // at z~0.68 and ~0.51 ABOVE the board, and the arm is only ~0.57 long.
+        // So the reachable water window is a short band forward of the shoulder;
+        // the hand MUST plant forward (past the head at z~0.79) and pull back to
+        // under the shoulder, then swing forward through the air. The old path
+        // targeted z~0.52..-0.43 -- entirely BEHIND the shoulder -- which is why
+        // it read as punching near the waist instead of paddling forward.
         let bx = side*0.30, by, bz;
-        if (c < 0.42){ const u=c/0.42; bz = 0.52 - u*0.95; by = -0.16; }          // dig + pull
-        else if (c < 0.55){ const u=(c-0.42)/0.13; bz = -0.43 - u*0.05; by = -0.16 + u*0.42; }
-        else { const u=(c-0.55)/0.45; bz = -0.48 + u*1.0; by = 0.26 - u*0.1; }    // recovery
+        if (c < 0.14){                       // CATCH: reach forward past the head, drop in
+          const u=c/0.14;
+          bz = 0.86 - u*0.02; by = 0.06 - u*0.09;
+        } else if (c < 0.50){                // PULL: plant sweeps back under the shoulder
+          const u=(c-0.14)/0.36;
+          bz = 0.84 - u*0.34; by = -0.03 - 0.045*Math.sin(u*Math.PI);  // skim surface, slight dig mid
+          bx = side*(0.30 - 0.12*Math.sin(u*Math.PI));                 // S-sweep in under the rail
+        } else if (c < 0.62){                // EXIT: elbow lifts, hand leaves at the hip
+          const u=(c-0.50)/0.12; bz = 0.50 - u*0.04; by = -0.03 + u*0.27;
+        } else {                             // RECOVERY: swing forward through the air to re-plant
+          const u=(c-0.62)/0.38; bz = 0.46 + u*0.40; by = 0.24 - u*0.18;
+        }
+        bz *= asym; bx *= asym;
         _hw.set(bx, by, bz).applyMatrix4(boardG.matrixWorld);
+        // Board-local y is fixed per phase, so in chop the hand air-strokes over
+        // a trough or buries in a crest. Pull it to just under the real surface
+        // through the whole in-water phase, bounded so a big mismatch can't yank
+        // the arm off.
+        if (c < 0.50){
+          const wy = waterH(_hw.x, _hw.z, t);
+          _hw.y = Math.max(Math.min(_hw.y, wy - 0.04), _hw.y - 0.20);
+        }
         _pole.set(side*2.0, -0.4, -0.6).applyQuaternion(boardG.quaternion);
         solveLimbIK(J['shoulder'+S], J['elbow'+S], _hw, _pole, LIMB.upperArm, LIMB.foreArm);
         const prev = S==='L' ? STROKE.cL : STROKE.cR;
@@ -2722,6 +2768,9 @@ function animPost(dt, t){
           SPRAY.emit(_hw.x, wy+0.05, _hw.z, side*0.4, 1.1, 0.3, 0.25, 4, 0.09, 0.5, 2);
           RINGS.spawn(_hw.x, wy, _hw.z, 0.8);
           SFX.plop();
+        } else if (prev < 0.50 && c >= 0.50){   // hand breaks the surface on exit
+          const wy = waterH(_hw.x, _hw.z, t);   // smaller, no ring: this is drip, not entry
+          SPRAY.emit(_hw.x, wy+0.03, _hw.z, side*0.25, 0.7, -0.35, 0.18, 2, 0.06, 0.4, 2);
         }
         if (S==='L') STROKE.cL = c; else STROKE.cR = c;
       }
@@ -3134,7 +3183,14 @@ function updatePlayer(dt){
         1.40*(1-sk), 0, 0, 0.85*sk);
     } else placeCharOnBoard(_v3b.set(0,0.10,-0.70), 1.40, 0, 0);
     resetPose();
-    if (paddling) P.phase += dt*4.4;
+    if (paddling){
+      // Cadence tracks effort instead of being a constant 4.4: strokes start
+      // deliberate and wind up as the sprint ramp builds (the same P.padT that
+      // already drives speed), and a short board is paddled at a quicker,
+      // choppier tempo than a log. Without this the rider sprints and glides at
+      // exactly the same tempo, which is what made it read as a wind-up toy.
+      P.phase += dt * (3.5 + sstep(0.9, 2.6, P.padT)*2.1) / BOARD.paddle;
+    }
     poseProne(paddling, P.phase);   // stroke splashes come from the hand-IK layer
     // transitions
     if (K.sh && P.duckCd<=0 && P.sitK<0.3){ K.sh=false; P.state='duck'; P.timer=0; P.duckCd=2.2; SFX.duck(); break; }
